@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.7  2003/09/01 19:34:18  stuart
+# Tagging nits.
+#
 # Revision 2.6  2003/09/01 18:59:48  stuart
 # Add convert_eol function.
 #
@@ -72,32 +75,30 @@ def _tag_part(msg,sigkey):
     del msg["content-transfer-encoding"]
     encode_base64(msg)
 
-def add_signature_tag(txt,sigkey,prob=None):
-      # add signature key to message
-      msg = mime.MimeMessage(StringIO.StringIO(txt))
-      if not prob == None:
-	msg['X-DSpam-Score'] = '%f'%prob
-      if not msg.is_multipart():
-        _tag_part(msg,sigkey)
-      else:
-        # check whether any explicit html
-	any_html = False
-        for part in msg.walk():
-	  if part.get_type() == 'text/html':
-	    any_html = True
-	    break
-	# add tag to first suitable text segment
-	done = False
-	for part in msg.walk():
-	  if not part.is_multipart():
-	    if part.get_type() == 'text/html' \
-	      or not any_html and part.get_main_type() == 'text':
-	      _tag_part(part,sigkey)
-	      done = True
-	      break
-	if not done:
-	  msg.epilog = "\n<!DSPAM:%s>\n\n" % sigkey
-      return msg.as_string()
+def add_signature_tag(msg,sigkey,prob=None):
+  # add signature key to message
+  if not prob == None:
+    msg['X-DSpam-Score'] = '%f'%prob
+  if not msg.is_multipart():
+    _tag_part(msg,sigkey)
+  else:
+    # check whether any explicit html
+    any_html = False
+    for part in msg.walk():
+      if part.get_type() == 'text/html':
+	any_html = True
+	break
+    # add tag to first suitable text segment
+    done = False
+    for part in msg.walk():
+      if not part.is_multipart():
+	if part.get_type() == 'text/html' \
+	  or not any_html and part.get_main_type() == 'text':
+	  _tag_part(part,sigkey)
+	  done = True
+	  break
+    if not done:
+      msg.epilog = "\n<!DSPAM:%s>\n\n" % sigkey
 
 def extract_signature_tags(txt):
   tags = []
@@ -109,8 +110,9 @@ def extract_signature_tags(txt):
     end = txt.find('>',beg)
     if end > beg and end - beg < 64:
       tags.append(txt[beg:end])
-    beg = end + 1
-  return tags
+      beg -= 8
+      txt = txt[:beg] + txt[end+1:]
+  return (txt,tags)
 
 def parse_groups(groupfile):
   "Parse group file, return map from user -> group or none"
@@ -150,7 +152,7 @@ class DSpamDirectory(object):
     return (dspam_dict,sigfile,mbox)
 
 # check spaminess for a message
-  def check_spam(self,user,txt):
+  def check_spam(self,user,txt,recipients = None):
     "Return tagged message, or None if message was quarantined."
 
     dspam_dict,sigfile,mbox = self.user_files(user)
@@ -167,16 +169,21 @@ class DSpamDirectory(object):
 
       try:
 	# add signature key to message
-	txt = add_signature_tag(txt,sigkey,ds.probability)
+	msg = mime.MimeMessage(StringIO.StringIO(txt))
+	add_signature_tag(msg,sigkey,ds.probability)
 
 	# quarantine mail if dspam thinks it looks spammy
 	if ds.result == dspam.DSR_ISSPAM:
+	  if recipients:
+	    msg['X-Originally-To'] = ', '.join(recipients)
+	  txt = msg.as_string()
 	  fp = open(mbox,'a')
 	  if not txt.startswith('From '):
 	    fp.write('From dspam %s\n' % time.ctime())
 	  fp.write(txt)
 	  fp.close()
 	  return None
+	txt = msg.as_string()
       except: pass
 
     finally:
@@ -193,7 +200,7 @@ class DSpamDirectory(object):
     try:
       db = bsddb.btopen(sigfile,'c')
       try:
-	tags = extract_signature_tags(txt)
+	txt,tags = extract_signature_tags(txt)
 	for tag in tags:
 	  if db.has_key(tag):
 	    data = db[tag]
@@ -210,14 +217,17 @@ class DSpamDirectory(object):
     if not done:	# no tags in sig database, use full text
       print 'No tags: Using full text'
       opts = dspam.DSF_CHAINED|dspam.DSF_SIGNATURE|dspam.DSF_IGNOREHEADER
-      txt = '\n'.join(txt.splitlines())+'\n' # convert to unix EOL
+      txt = convert_eol(txt)
       ds = dspam.dspam(dspam_dict,op,opts)
       ds.process(txt)
-    return ds.totals
+    self.totals = ds.totals
+    return txt
 
-  # report a message as spam
   def add_spam(self,user,txt):
-    return self._feedback(user,txt,dspam.DSM_ADDSPAM)
+    "Report a message as spam."
+    self._feedback(user,txt,dspam.DSM_ADDSPAM)
+    return None
 
   def false_positive(self,user,txt):
+    "Report a false positive, return message with tags removed."
     return self._feedback(user,txt,dspam.DSM_FALSEPOSITIVE)

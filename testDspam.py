@@ -51,14 +51,15 @@ class pyDSpamTestCase(unittest.TestCase):
     # check that sigs are all present
     db = bsddb.btopen(ds.user_files('tonto')[1],'r')
     for txt in msgs:
-      tag = Dspam.extract_signature_tags(txt)
+      txt,tag = Dspam.extract_signature_tags(txt)
       self.failUnless(len(tag) == 1)
       self.failUnless(db.has_key(tag[0]))
     db.close()
 
     spams = msgs[1:4]
     for txt in spams:
-      tot = ds.add_spam('tonto',txt)		# feedback spam
+      ds.add_spam('tonto',txt)		# feedback spam
+      tot = ds.totals
     self.failUnless(tot == (3,2,3,0))
 
     # check that sigs were deleted
@@ -74,7 +75,8 @@ class pyDSpamTestCase(unittest.TestCase):
       txt = open('test/spam7').read()	# spam mail
       txt = ds.check_spam('tonto',txt)
       if not txt: break	# message was quarantined
-      tot = ds.add_spam('tonto',txt)
+      ds.add_spam('tonto',txt)
+      tot = ds.totals
       txt = open('test/samp1').read()	# innocent mail
       txt = ds.check_spam('tonto',txt)
       self.failIf(not txt)
@@ -97,7 +99,8 @@ class pyDSpamTestCase(unittest.TestCase):
     msg = mb.next()	# get 2nd message, which should be our false positive
     self.assertEqual(msg.get('subject'),'Just another unit test')
     txt = msg.as_string()
-    tot = ds.false_positive('tonto',txt)	# feedback as false positive
+    ds.false_positive('tonto',txt)	# feedback as false positive
+    tot = ds.totals
     self.assertEqual(tot[3],1)	# should be 1 FP
 
     # now receive the innocent mail again, it should not look spammy anymore.
