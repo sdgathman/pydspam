@@ -21,7 +21,7 @@ ALT="Viewable With Any Browser" BORDER="0"></A>
   Stuart D. Gathman</a><br>
 This web page is written by Stuart D. Gathman<br>and<br>sponsored by
 <a href="http://www.bmsi.com">Business Management Systems, Inc.</a> <br>
-Last updated Jul 15, 2003</h4>
+Last updated Jul 16, 2003</h4>
 
 <b>Update:</b> Configure patch available separately from SRPM.<br>
 <a href="#download">Downloads</a>
@@ -89,99 +89,68 @@ with <code>MAILER(dspam)</code> in <code>/etc/mail/sendmail.mc</code>, then
 regenerate <code>sendmail.cf</code> (instructions are in the comments at the
 top of <code>sendmail.mc</code>).
 
-<h2> Dspam and Python Milter </h2>
+<h2> Header Triage with Dspam and Python Milter </h2>
 
 For a really powerful mail filtering system, combine the DSPAM Python
 module with <a href="http://www.sendmail.org">sendmail</a> and
 <a href="milter.html">Python Milter</a>.  For instance, here is
 a simple change to milter-0.5.5 I am testing:
-<pre>
-*** bms.py	Mon Jul 14 16:26:31 2003
---- dspambms.py	Mon Jul 14 16:24:34 2003
-***************
-*** 91,96 ****
---- 91,97 ----
-  import StringIO
-  import rfc822
-  import mime
-+ import dspam
-  import Milter
-  import tempfile
-  import ConfigParser
-***************
-*** 120,125 ****
---- 121,127 ----
-  internal_connect = ()
-  internal_domains = ()
-  smart_alias = {}
-+ dspam_dict = '/var/log/milter/dspam/bms.dict'
-  
-  class MilterConfigParser(ConfigParser.ConfigParser):
-  
-***************
-*** 230,235 ****
---- 232,243 ----
-      if not rcpt in self.redirect_list:
-        self.redirect_list.append(rcpt)
-  
-+   # addheader can only be called from eom().  This accumulates added headers
-+   # which can then be applied by alter_headers()
-+   def add_header(self,name,val):
-+     self.new_headers.append((name,val))
-+     self.log('%s: %s' % (name,val))
-+ 
-    def connect(self,hostname,unused,hostaddr):
-      self.internal_connection = 0
-      if hostaddr and len(hostaddr) > 0:
-***************
-*** 263,268 ****
---- 271,277 ----
-      self.discard = 0
-      self.redirect_list = []
-      self.discard_list = []
-+     self.new_headers = []
-      t = parse_addr(f)
-      if len(t) == 2:
-        domain = t[1]
-***************
-*** 387,392 ****
---- 396,414 ----
-      self.tempname = fname = tempfile.mktemp(".defang")
-      self.fp = open(fname,"w+b")
-      self.fp.write(headers)	# IOError (e.g. disk full) causes TEMPFAIL
-+     # check if headers are really spammy
-+     if not self.internal_connection:
-+       ds = dspam.dspam(dspam_dict,dspam.DSM_PROCESS,
-+         dspam.DSF_CHAINED|dspam.DSF_CLASSIFY)
-+       try:
-+         ds.process(headers)
-+         if ds.probability > 0.93:
-+           self.log('REJECT: X-DSpam-HeaderScore: %f' % ds.probability)
-+ 	  self.setreply('554','5.7.1','Your Message looks spammy')
-+ 	  return Milter.REJECT
-+ 	self.add_header('X-DSpam-HeaderScore','%f'%ds.probability)
-+       finally:
-+         ds.destroy()
-      return Milter.CONTINUE
-  
-    def body(self,chunk):		# copy body to temp file
-***************
-*** 436,441 ****
---- 458,465 ----
-      if self.hidepath: del msg['Received']
-  
-      self.alter_recipients(self.discard_list,self.redirect_list)
-+     for name,val in self.new_headers:
-+       self.addheader(name,val)
-  
-      # filter leaf attachments through _chk_attach
-      try:
-</pre>
-
+<a href="milter-bms.patch">Patch to bms.py from milter-0.5.5</a>.
+<p>
 The dictionary is the one maintained by the dspam delivery agent installed
 with the dspam package.  Scanning the headers in the milter allows us
 to REJECT spam connections before they've wasted all our bandwidth.
-I plan on implementing a complete milter based dspam solution in milter-0.5.6.
+<p>
+To show just how bad the spam problem is, here are statistics for our
+domain with just 6 users.  Two users (including me) are published on 
+the web with HTML encoding.  I also use my real email when posting
+to newsgroups.  Because my email is acessible, I receive welcome email
+from fellow techies all over the world.  
+<p>
+<table>
+<tr> <th colspan=2> Statistics for Jul 15 </th>
+<tr> <td> 1139 </td> <td> Messages from known spamming domains refused by
+	sendmail. </td>
+<tr> <td> 160 </td> <td> Messages REJECTED by milter because of banned
+	keywords like 'viagra'. </td>
+<tr> <td> 169 </td> <td> Messages REJECTED by milter because of high
+	Dspam scores for headers. </td>
+<tr> <td> 261 </td> <td> Messages quarrantined by Dspam
+	mail delivery agent. </td>
+<tr> <td> 40 </td> <td> Actual email received for 6 users.</td>
+</table>
+<p>
+We do not use a black hole list for known spamming IPs / domains.  This
+is because some of our customers use blacklisted ISPs because they
+are the only broadband available in their area.  Black hole lists like
+to blacklist entire ISPs, including innocent customers who have no
+other choice (other than dialup) for connectivity.
+With a little python programming to collect data, DSPAM will allow us to
+automate building the list of banned IPs / domains.
+<p>
+The header triage feature will be in milter-0.5.6.  I envision a complete
+milter based implementation of dspam which appoints selected 
+email destinations as 'moderators'.  The MDA approach currently used
+by dspam requires all users to diligently classify their email to train
+the filter.  In the new approach, moderators will do this work, and
+the resulting dspam dictionary used to filter mail for other users
+in their group.
+
+<h2> Learning Decay </h2>
+
+Here I address a problem encountered with the Dspam approach.
+There needs to be some sort of decay of learned messages.  Otherwise,
+adaptation gets less and less with each message until we're effectively not
+learning any more.  One approach would be to periodically divide all hit counts
+by 2.  For instance, when total messages (Spam + Innocent) reaches 4000 (or
+some other number substantially bigger than 1000), then divide all hits and
+totals in the dictionary by 2.  This will give the next 2000 messages double
+the weight of the previous 4000.  And messages 6001-8000 will have four times
+the weight of 1-4000, and twice the weight of 4001-6000.
+<p>
+Dspam_purge would be a good place to implement the decay algorithm.
+We might then want to add a new totals record, e.g. '_GTOT'.  This
+would keep the real (not scaled) totals that humans are interested in.
 
 <h2> <a name="download">Downloads</a> </h2>
 
@@ -193,6 +162,10 @@ patches and do it yourself.
 <p>
 Release 3 splits python support into a sub package, adds unit test and
 fix for CORPUS bug.
+
+<h3> Binary RPMs </h3>
+
+  <h4> RedHat 7.2 </h4>
 <menu>
 <li><a href="/linux/rh72/dspam-2.6.2-3.i386.rpm">dspam-2.6.2-3</a>
   RedHat 7.2 binary RPM
@@ -200,26 +173,38 @@ fix for CORPUS bug.
   Development headers and static library
 <li><a href="/linux/rh72/dspam-python-2.6.2-3.i386.rpm">dspam-python-2.6.2-3.i386.rpm</a>
   Python module and utilities
+</menu>
+
+  <h4> RedHat 7.3 </h4>
+<menu>
 <li> <a href="/linux/rh73/dspam-2.6.2-3.i386.rpm">dspam-2.6.2-3</a>
   RedHat 7.3 binary RPM
 <li><a href="/linux/rh73/dspam-devel-2.6.2-3.i386.rpm">dspam-devel-2.6.2-3.i386.rpm</a>
   Development headers and static library
 <li><a href="/linux/rh73/dspam-python-2.6.2-3.i386.rpm">dspam-python-2.6.2-3.i386.rpm</a>
   Python module and utilities
+</menu>
+
+  <h4> AIX 4.x </h4>
+<menu>
 <li> <a href="/aix/dspam-2.6.2-3.ppc.rpm">dspam-2.6.2-3.ppc.rpm</a>
   AIX 4.x binary RPM
 <li><a href="/aix/dspam-devel-2.6.2-3.ppc.rpm">dspam-devel-2.6.2-3.ppc.rpm</a>
   Development headers and static library
 <li><a href="/aix/dspam-python-2.6.2-3.ppc.rpm">dspam-python-2.6.2-3.ppc.rpm</a>
   Python module and utilities
+</menu>
+
+<h3> Source and Source RPMs </h3>
+<menu>
 <li> <a href="/linux/rh73/dspam-2.6.2-3.src.rpm">dspam-2.6.2-3</a>
-  RedHat Source RPM
+  Source RPM (tested on RedHat and AIX 4.1.5).
 <li> <a href="dspam.patch"> Patches against the original dspam-2.6.2 source</a>
   Fixes bugs and adds python directory.  (Will move python directory
   to separate pydspam project shortly.)
 <li> <a href="dspam-db3.patch"> Patches to configure to compile with db3 </a>
-  This was in the Source RPM, but those downloading the raw source might
-  need it.
+  This is in the Source RPM, but those downloading the raw source might
+  need it also.
 <li> <a href="/linux/dspam-2.6.2.tar.gz">
 	dspam-2.6.2 source (dspam site does not have archives)</a>
 </menu>
