@@ -17,13 +17,15 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
+# $Log$
+
 from time import ctime
 import sys
 import StringIO
 import os
 import os.path
 import cgi
-#import cgitb; cgitb.enable()
+import cgitb; cgitb.enable()
 import mailbox
 import re
 
@@ -31,13 +33,18 @@ import re
 #
 CONFIG = {
   'USERDIR': "/etc/mail/dspam",
-  'ME': "pydspam.cgi",
+  'ME': "dspam.cgi",
   'DOMAIN': "mail.bmsi.com",
   'DSPAM': "/usr/local/bin/falsepositive",
   'LARGE_SCALE': 0
 }
 #
 ## End Configuration
+
+remote_user=None
+USER=None
+FORM=None
+MAILBOX=None
 
 def DoCommand():
   global remote_user,FORM,MAILBOX,USER
@@ -183,10 +190,17 @@ def trimString(s,maxlen):
     return s[:maxlen-3] + "..."
   return s[:maxlen]
 
+def getAlerts():
+  try:
+    FILE = open(USER+".alerts",'r')
+    alerts = FILE.read().splitlines()
+    FILE.close()
+  except IOError:
+    alerts = []
+  return alerts
+
 def ViewSpam():
-  FILE = open(USER+".alerts",'r')
-  alerts = FILE.read().splitlines()
-  FILE.close()
+  alerts = getAlerts()
 
   buff = StringIO.StringIO()
   buff.write("""
@@ -266,10 +280,12 @@ def CountMsgs(fname):
   "Quickly count messages in quarantine."  
   # If memory use is a problem for huge quarantines, loop over an mbox
   # instead.
-  FILE = open(fname,'r')
-  s = FILE.read()
-  FILE.close()
-  if s: return len(s.split('\nFrom '))
+  try:
+    FILE = open(fname,'r')
+    s = FILE.read()
+    FILE.close()
+    if s: return len(s.split('\nFrom '))
+  except IOError: pass
   return 0
 
 def Welcome():
@@ -321,9 +337,7 @@ def Welcome():
 <TABLE BORDER=0>
 """ % locals()
 
-  FILE = open(USER+".alerts",'r')
-  alerts = FILE.read().splitlines()
-  FILE.close()
+  alerts = getAlerts()
   line = 0
   for al in alerts:
     message += """<TR><TD>%s&nbsp;&nbsp;</TD><TD>[
