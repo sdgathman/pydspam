@@ -1,6 +1,6 @@
 #
 # $Log$
-# Revision 2.21.2.1  2003/12/18 16:26:17  stuart
+# Revision 2.22  2003/12/04 23:19:07  stuart
 # Save dspam result.  Pass on exceptions when attempting to quarantine.
 #
 # Revision 2.21  2003/11/16 02:55:54  stuart
@@ -82,11 +82,13 @@ import struct
 # use the mime package from milter instead
 import mime
 import StringIO
+import thread
 
 from email.Encoders import encode_base64, encode_quopri
 
 VERSION = "1.1.5"
 
+_seq_lock = thread.allocate_lock()
 _seq = 0
 
 def create_signature_id():
@@ -142,8 +144,8 @@ def add_signature_tag(msg,sigkey,prob=None):
     done = False
     for part in msg.walk():
       if not part.is_multipart():
-	if part.get_type() == 'text/html' \
-	  or not any_html and part.get_main_type() == 'text':
+	if part.get_type() == 'text/html' or not any_html and (
+	    part.get_main_type() == 'text' or not part.get_main_type()):
 	  _tag_part(part,sigkey)
 	  done = True
 	  break
@@ -221,6 +223,7 @@ class DSpamDirectory(object):
       opts |= dspam.DSF_CLASSIFY
     savmask = os.umask(006) # mail group must be able write dict and sig
     try:
+      _seq_lock.acquire()
       dspam.file_lock(dspam_dict)
       ds = dspam.dspam(dspam_dict,dspam.DSM_PROCESS,opts)
       txt = convert_eol(txt)
@@ -275,6 +278,7 @@ class DSpamDirectory(object):
       finally:
 	dspam.file_unlock(dspam_dict)
 	ds.destroy()
+	_seq_lock.release()
     finally: os.umask(savmask)
     return txt
 
@@ -362,10 +366,18 @@ class DSpamDirectory(object):
   def add_spam(self,user,txt):
     "Report a message as spam."
     self.probability = 1.0
-    self._feedback(user,txt,dspam.DSM_ADDSPAM)
+    _seq_lock.acquire()
+    try:
+      self._feedback(user,txt,dspam.DSM_ADDSPAM)
+    finally:
+      _seq_lock.release()
     return None
 
   def false_positive(self,user,txt):
     "Report a false positive, return message with tags removed."
     self.probability = 0.0
-    return self._feedback(user,txt,dspam.DSM_FALSEPOSITIVE)
+    _seq_lock.acquire()
+    try:
+      return self._feedback(user,txt,dspam.DSM_FALSEPOSITIVE)
+    finally:
+      _seq_lock.release()
