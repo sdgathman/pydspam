@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.18  2003/10/28 01:05:59  stuart
+# Innoculate with all signatures found
+#
 # Revision 2.17  2003/10/22 20:54:49  stuart
 # Properly teach false positives.
 #
@@ -166,7 +169,7 @@ def parse_groups(groupfile,dups=False):
 def convert_eol(txt):
   txt = txt.splitlines()
   txt.append('')
-  return '\n'.join(txt)
+  return '\n'.join(txt).replace('\x00','')
 
 class DSpamDirectory(object):
 
