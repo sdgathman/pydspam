@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.3  2003/08/30 20:24:30  stuart
+# Unit test high level Dspam
+#
 # Revision 2.2  2003/08/30 05:42:53  stuart
 # Feedback methods
 #
@@ -119,6 +122,8 @@ class DSpamDirectory(object):
       if ds.result == dspam.DSR_ISSPAM:
 	try:
 	  fp = open(mbox,'a')
+	  if not txt.startswith('From '):
+	    fp.write('From dspam %s\n' % time.ctime())
 	  fp.write(txt)
 	  fp.close()
 	  return None
