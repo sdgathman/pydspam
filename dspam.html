@@ -21,8 +21,12 @@ ALT="Viewable With Any Browser" BORDER="0"></A>
   Stuart D. Gathman</a><br>
 This web page is written by Stuart D. Gathman<br>and<br>sponsored by
 <a href="http://www.bmsi.com">Business Management Systems, Inc.</a> <br>
-Last updated Jul 14, 2003</h4>
+Last updated Jul 15, 2003</h4>
 
+<b>Update:</b> Configure patch available separately from SRPM.<br>
+<a href="#download">Downloads</a>
+
+<p>
 This project adds Python support, bug fixes, and additional utilities
 to the excellent 
 <a href="http://www.networkdweebs.com/software/dspam/">DSPAM</a> project
@@ -60,10 +64,12 @@ Many new approaches have also been implemented by DSPAM.
 </blockquote>
 <p>
 
+<h2> Dspam RPMs </h2>
+
 <img src="python55.gif" align=left alt="A Python">
 The RPMs for dspam-2.6.2 available from this web page include a <a
 href="//www.python.org">Python</a> module which wraps the dspam core engine
-(libdspam).  All of the dspam command line tools are reimplemented in 
+(libdspam).  Many of the dspam command line tools are reimplemented in 
 Python to illustrate use of the library.  (The Python versions are not
 installed by the RPM.)  The RPMs also include patches to add a new
 libdspam entry point: _ds_tokenize(), and a new tool, dspam_anal.py, is
@@ -75,6 +81,13 @@ a built-in unit testing framework.  The C tests use the
 <a href="http://check.sourceforge.net">check project</a>.  The RPM build
 procedure does not attempt to build or run the unit tests, so the check
 framework is not needed to build the RPM.
+<p>
+Cron entries for dspam_purge and dspam_clean are provided as is 
+a 'dspam' local mailer.  To activate dspam with these RPMs for the version of
+sendmail included with RedHat, simply replace <code>MAILER(local)</code>
+with <code>MAILER(dspam)</code> in <code>/etc/mail/sendmail.mc</code>, then
+regenerate <code>sendmail.cf</code> (instructions are in the comments at the
+top of <code>sendmail.mc</code>).
 
 <h2> Dspam and Python Milter </h2>
 
@@ -170,22 +183,25 @@ with the dspam package.  Scanning the headers in the milter allows us
 to REJECT spam connections before they've wasted all our bandwidth.
 I plan on implementing a complete milter based dspam solution in milter-0.5.6.
 
-<h2> Downloads </h2>
+<h2> <a name="download">Downloads</a> </h2>
 
 Pick one of the following.  The binary RPM is the easiest, and will run
 on Red Hat 7.2 or 7.3 (and probably later versions).  The source RPM
-can be recompiled to match your distribution.  And finally, you can
-grab the original sources and my patches and do it yourself.
+contains all the required source and patches, and can be recompiled to match
+your distribution.  And finally, you can grab the original sources and my
+patches and do it yourself.
 <p>
 Release 3 splits python support into a sub package, adds unit test and
 fix for CORPUS bug.
 <menu>
-<li><a href="/linux/rh72/dspam-2.6.2-3.i386.rpm">dspam-2.6.2-3</a>RedHat 7.2 binary RPM
+<li><a href="/linux/rh72/dspam-2.6.2-3.i386.rpm">dspam-2.6.2-3</a>
+  RedHat 7.2 binary RPM
 <li><a href="/linux/rh72/dspam-devel-2.6.2-3.i386.rpm">dspam-devel-2.6.2-3.i386.rpm</a>
   Development headers and static library
 <li><a href="/linux/rh72/dspam-python-2.6.2-3.i386.rpm">dspam-python-2.6.2-3.i386.rpm</a>
   Python module and utilities
-<li> <a href="/linux/rh73/dspam-2.6.2-3.i386.rpm">dspam-2.6.2-3</a>RedHat 7.3 binary RPM
+<li> <a href="/linux/rh73/dspam-2.6.2-3.i386.rpm">dspam-2.6.2-3</a>
+  RedHat 7.3 binary RPM
 <li><a href="/linux/rh73/dspam-devel-2.6.2-3.i386.rpm">dspam-devel-2.6.2-3.i386.rpm</a>
   Development headers and static library
 <li><a href="/linux/rh73/dspam-python-2.6.2-3.i386.rpm">dspam-python-2.6.2-3.i386.rpm</a>
@@ -196,10 +212,14 @@ fix for CORPUS bug.
   Development headers and static library
 <li><a href="/aix/dspam-python-2.6.2-3.ppc.rpm">dspam-python-2.6.2-3.ppc.rpm</a>
   Python module and utilities
-<li> <a href="/linux/rh73/dspam-2.6.2-3.src.rpm">dspam-2.6.2-3</a>RedHat Source RPM
+<li> <a href="/linux/rh73/dspam-2.6.2-3.src.rpm">dspam-2.6.2-3</a>
+  RedHat Source RPM
 <li> <a href="dspam.patch"> Patches against the original dspam-2.6.2 source</a>
   Fixes bugs and adds python directory.  (Will move python directory
   to separate pydspam project shortly.)
+<li> <a href="dspam-db3.patch"> Patches to configure to compile with db3 </a>
+  This was in the Source RPM, but those downloading the raw source might
+  need it.
 <li> <a href="/linux/dspam-2.6.2.tar.gz">
 	dspam-2.6.2 source (dspam site does not have archives)</a>
 </menu>
