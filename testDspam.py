@@ -53,6 +53,11 @@ class pyDSpamTestCase(unittest.TestCase):
     ds1.lock()
     # and try to process addspam while locked
     ds.add_spam('tonto',txt)
+    try:
+      ds.check_spam('tonto',txt)
+    except dspam.error,x:
+      if not x.strerror: x.strerror = x.args[0]
+      self.failUnless(x.strerror == 'Lock failed')
     ds1.unlock()
     # check that message got written to overflow
     self.failUnless(os.path.exists(overflow))

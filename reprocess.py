@@ -1,5 +1,8 @@
 #!/usr/bin/env python2
 # $Log$
+# Revision 2.5  2003/10/22 21:47:32  stuart
+# Reprocess false positives also.
+#
 # Revision 2.4  2003/10/22 02:03:17  stuart
 # Add From header for reprocessing failures
 #
@@ -33,8 +36,10 @@ for fname in sys.argv[1:]:
 	txt = msg.as_string()
 	try:
 	  if ext == 'spam':
+	    log('SPAM:',user)
 	    ds.add_spam(user,txt)
 	  else:
+	    log('FP:',user)
 	    ds.false_positive(user,txt)
 	except Exception,x:
 	  log('FAIL:',x)
