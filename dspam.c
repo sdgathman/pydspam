@@ -25,6 +25,9 @@
 
 /* 
  * $Log$
+ * Revision 2.1  2003/06/27 19:51:10  stuart
+ * Add dspam interface.
+ *
  */
 
 #include <pthread.h>
@@ -187,6 +190,7 @@ static PyObject *
 _dspam_lock(PyObject *dspamctx, PyObject *args) {
   dspam_Object *self = (dspam_Object *)dspamctx;
   DSPAM_CTX *ctx = self->ctx;
+  if (!PyArg_ParseTuple(args, ":lock")) return NULL;
   if (!ctx || _ds_context_lock(ctx)) {
     PyErr_SetString(DspamError, "Lock failed");
     return NULL;
@@ -203,7 +207,25 @@ static PyObject *
 _dspam_unlock(PyObject *dspamctx, PyObject *args) {
   dspam_Object *self = (dspam_Object *)dspamctx;
   DSPAM_CTX *ctx = self->ctx;
+  if (!PyArg_ParseTuple(args, ":unlock")) return NULL;
   if (ctx) _ds_context_unlock(ctx);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static char _dspam_destroy__doc__[] =
+"destroy() -> None\n\
+  Release all resources for this DSPAM context.";
+
+static PyObject *
+_dspam_destroy(PyObject *dspamctx, PyObject *args) {
+  dspam_Object *self = (dspam_Object *)dspamctx;
+  DSPAM_CTX *ctx = self->ctx;
+  if (!PyArg_ParseTuple(args, ":destroy")) return NULL;
+  if (ctx) {
+    self->ctx = 0;
+    dspam_destroy(ctx);
+  }
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -246,6 +268,7 @@ static PyMethodDef dspamctx_methods[] = {
   { "process", _dspam_process, METH_VARARGS, _dspam_process__doc__},
   { "lock", _dspam_lock, METH_VARARGS, _dspam_lock__doc__},
   { "unlock", _dspam_unlock, METH_VARARGS, _dspam_unlock__doc__},
+  { "destroy", _dspam_destroy, METH_VARARGS, _dspam_destroy__doc__},
   { NULL, NULL }
 };
 

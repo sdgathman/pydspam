@@ -16,15 +16,15 @@ class DSpamTestCase(unittest.TestCase):
       msg = open('test/'+ham).read()
       msg = '\n'.join(msg.splitlines())
       ds.process(msg)
-    print ds.totals
     self.assertEqual(ds.totals,(0,len(hams),0,0))
+    ds.destroy()
     ds = dspam(fname,DSM_ADDSPAM,DSF_CHAINED|DSF_CORPUS)
     for spam in spams:
       msg = open('test/'+spam).read()
       msg = '\n'.join(msg.splitlines())
       ds.process(msg)
-    print ds.totals
     self.assertEqual(ds.totals,(len(spams),len(hams),0,0))
+    ds.destroy()
 
   # test mime parameter parsing
   def testProcess(self):
