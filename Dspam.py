@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.21.2.5  2004/04/08 23:29:58  stuart
+# Handle tags within multiline HTML comment.
+#
 # Revision 2.21.2.4  2004/03/29 21:25:01  stuart
 # Releasing _seq_lock in wrong finally
 #
@@ -189,9 +192,9 @@ def parse_groups(groupfile,dups=False):
       group,users = ln.strip().split(':',1)
       for user in users.split(','):
         if dups:
-	  groups.setdefault(user,[]).append(group)
+	  groups.setdefault(user.strip(),[]).append(group)
 	else:
-	  groups[user] = group
+	  groups[user.strip()] = group
     fp.close()
   except: pass
   return groups
