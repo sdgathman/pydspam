@@ -25,6 +25,9 @@
 
 /* 
  * $Log$
+ * Revision 2.3  2003/07/03 16:22:45  stuart
+ * Support DSF_CLASSIFY in dspam-2.6.2
+ *
  * Revision 2.2  2003/06/30 21:25:44  stuart
  * DSPAM destroy() method to release resources
  *
@@ -42,6 +45,8 @@
  * the functionality of dspam. */
 int _ds_context_lock(DSPAM_CTX *);
 int _ds_context_unlock(DSPAM_CTX *);
+int _ds_file_lock(const char *);
+int _ds_file_unlock(const char *);
 
 static PyObject *DspamError;
 
@@ -216,6 +221,37 @@ _dspam_unlock(PyObject *dspamctx, PyObject *args) {
   return Py_None;
 }
 
+static char _dspam_file_lock__doc__[] =
+"file_lock(filename) -> None\n\
+  Lock a file using the DSPAM locking protocol.\n\
+  When used with the DSF_NOLOCK flag\n\
+  allows the sig database and other data to be locked also.";
+
+static PyObject *
+_dspam_file_lock(PyObject *module, PyObject *args) {
+  char *fname;
+  if (!PyArg_ParseTuple(args, "s:file_lock",&fname)) return NULL;
+  if (_ds_file_lock(fname)) {
+    PyErr_SetString(DspamError, "Lock failed");
+    return NULL;
+  }
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static char _dspam_file_unlock__doc__[] =
+"file_unlock(filename) -> None\n\
+  Unlock a file locked with file_lock().";
+
+static PyObject *
+_dspam_file_unlock(PyObject *module, PyObject *args) {
+  char *fname;
+  if (!PyArg_ParseTuple(args, "s:file_unlock",&fname)) return NULL;
+  _ds_file_unlock(fname);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static char _dspam_destroy__doc__[] =
 "destroy() -> None\n\
   Release all resources for this DSPAM context.";
@@ -292,7 +328,8 @@ static PyGetSetDef dspamctx_getsets[] = {
 };
 
 static PyMethodDef _dspam_methods[] = {
-   /* { "dspam", dspam_new, METH_VARARGS, cisam_open__doc__}, */
+   { "file_lock",_dspam_file_lock,METH_VARARGS,_dspam_file_lock__doc__},
+   { "file_unlock",_dspam_file_unlock,METH_VARARGS,_dspam_file_unlock__doc__},
    { NULL, NULL }
 };
 
@@ -354,6 +391,8 @@ initdspam(void) {
    if (!DspamError) return;
    if (PyDict_SetItemString(d,"error", DspamError)) return;
    if (PyDict_SetItemString(d,"dspam", (PyObject *)&dspam_Type)) return;
+   /* init is a synonym for dspam type */
+   if (PyDict_SetItemString(d,"init", (PyObject *)&dspam_Type)) return;
 #define CONST(n) PyModule_AddIntConstant(m,#n, n)
 /* DSPAM Flags */
    CONST(DSF_CHAINED); CONST(DSF_SIGNATURE);
