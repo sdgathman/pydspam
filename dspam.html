@@ -24,7 +24,7 @@ ALT="Viewable With Any Browser" BORDER="0"></A>
   Stuart D. Gathman</a><br>
 This web page is written by Stuart D. Gathman<br>and<br>sponsored by
 <a href="http://www.bmsi.com">Business Management Systems, Inc.</a> <br>
-Last updated Aug 04, 2003</h4>
+Last updated Aug 07, 2003</h4>
 
 <a href="#download">Downloads</a>,<a href="#bugs">Bugs</a>,
 <a href="#triage">Header Triage</a>
@@ -87,15 +87,54 @@ procedure does not attempt to build or run the unit tests, so the check
 framework is not needed to build the RPM.  If you wish to verify
 dspam, you need to install the source RPM and build from the spec
 file.  Then go to the build directory and run <code>make -f maketest</code>.
-<p>
-The RPM installs cron entries for dspam_purge and dspam_clean and 
-provides a 'dspam' local mailer macro for sendmail-cf.  To activate dspam
-for the version of sendmail included with RedHat, simply replace
+
+<h3> Configuring DSPAM after installing the RPM </h3>
+
+The RPM automatically installs cron entries for dspam_purge and dspam_clean
+in the <code>/etc/cron.weekly</code> and <code>/etc/cron.daily</code>
+directories.
+
+<h4> Activating DSPAM to work with sendmail </h4>
+
+The RPM installs a 'dspam' local mailer macro for sendmail-cf.  To activate
+dspam for the version of sendmail included with RedHat, simply replace
 <code>MAILER(local)</code>
 with <code>MAILER(dspam)</code> in <code>/etc/mail/sendmail.mc</code>, then
 regenerate <code>sendmail.cf</code> (instructions are in the comments at the
 top of <code>sendmail.mc</code>).
+
+<h4> Activating the DSPAM CGI script </h4>
+
+The RPM installs the CGI interface in the <code>/var/www/cgi-bin/dspam</code>
+directory.  A wrapper script is installed as
+<code>/var/www/cgi-bin/dspam.cgi</code>.  The wrapper script runs the
+DSPAM CGI interface as the <code>dspam</code> user - which is also a member
+of the <code>mail</code> group.
 <p>
+To enable the CGI interface, you need to add an authorization entry
+to <code>/etc/httpd/conf/httpd.conf</code>.  For example,
+<pre>
+    ScriptAlias /cgi-bin/ "/var/www/cgi-bin/"
+
+    #
+    # "/var/www/cgi-bin" should be changed to whatever your ScriptAliased
+    # CGI directory exists, if you have that configured.
+    #
+    &lt;Directory "/var/www/cgi-bin"&gt;
+	AuthName Dspam
+	AuthType Basic
+	AuthUserFile /etc/httpd/conf/passwd
+	AuthGroupFile /etc/httpd/conf/group
+	Require group dspam
+        AllowOverride None
+        Options None FollowSymLinks
+        Order allow,deny
+        Allow from all
+    &lt;/Directory&gt;
+</pre>
+
+<h3> DSPAM RPM support for Python </h3>
+
 <img src="python55.gif" align=left alt="A Python">
 The <a name=python>pydspam</a> project is included as the dspam-python
 sub-package which is built from the pydspam source.  If you don't wish to build
@@ -155,7 +194,7 @@ the filter.  In the new approach, moderators will do this work, and
 the resulting dspam dictionary used to filter mail for other users
 in their group.
 
-<h2> <a name=bugs>Bugs</a> </h2>
+<h2> <a name=bugs>Bugs and Ideas</a> </h2>
 
 <h3> Learning Decay </h3>
 
@@ -180,7 +219,9 @@ would keep the real (not scaled) totals that humans are interested in.
   encountering the same record again.  This effectively cleaned the
   dictionary.  Both purge and clean need to check for encountering
   the same record again while reading the old database.  This is easily 
-  done by checking for dups while writing the new database.
+  done by checking for dups while writing the new database.  Dspam already
+  rebuilds each dictionary and signature database by copying all records
+  to a new file during each dspam_purge and dspam_clean cycle.
 
 <h3>Extended Signature State</h3>
 
@@ -190,12 +231,12 @@ would keep the real (not scaled) totals that humans are interested in.
   In my python milter based on libdspam, I plan to add a flag to the
   signature database to record the last
   action for a signature.  The states will be NEW,SPAM,INNOCENT
-  The dspam MDA would always set the state to SPAM or INNOCENT.  Then
-  dspam --addspam would do nothing if the message was already in
-  the spam state, and --falsepositive would do nothing if the message
-  was already in the INNOCENT state.
-  It would be nice for the user to query the current state given
-  a signature id.
+  The milter would set the state to SPAM or INNOCENT.  Then
+  doing the equivalent of "dspam -d user --addspam" would do nothing if the
+  message was already in the spam state, and the equivalent of
+  "--falsepositive" would do nothing if the message was already in the INNOCENT
+  state.  It would be nice for the user to query the current state given a
+  signature id.
 <p>
   I am considering having a NEW state for signatures that have not
   yet been added to the statistics either way.  This would be useful
@@ -263,11 +304,11 @@ CGI script runs as the dspam user.
 
   <h4> RedHat 7.3 </h4>
 <menu>
-<li><a href="/linux/rh73/dspam-2.6.3-1.i386.rpm">dspam-2.6.3-1.i386.rpm</a>
+<li><a href="/linux/rh73/dspam-2.6.3-2.i386.rpm">dspam-2.6.3-2.i386.rpm</a>
   RedHat 7.3 binary RPM
-<li><a href="/linux/rh73/dspam-devel-2.6.3-1.i386.rpm">dspam-devel-2.6.3-1.i386.rpm</a>
+<li><a href="/linux/rh73/dspam-devel-2.6.3-2.i386.rpm">dspam-devel-2.6.3-2.i386.rpm</a>
   Development headers and static library
-<li><a href="/linux/rh73/dspam-python-2.6.3-1.i386.rpm">dspam-python-2.6.3-1.i386.rpm</a>
+<li><a href="/linux/rh73/dspam-python-2.6.3-2.i386.rpm">dspam-python-2.6.3-2.i386.rpm</a>
   Python module and utilities
 <li> <a href="/linux/rh73/dspam-2.6.2-3.i386.rpm">dspam-2.6.2-3.i386.rpm</a>
   RedHat 7.3 binary RPM
@@ -326,6 +367,11 @@ install the source RPM and edit the spec file.
 </menu>
 
 <h3> Check RPMs </h3>
+
+The <a href="http://check.sourceforge.net">check project</a> provides 
+a simple unit testing framework for C programs.  You need this to build
+the DSPAM unit tests provided with the patches.
+
 <menu>
 <li> <a href="/linux/rh72/check-0.8.4-1.i386.rpm">check-0.8.4 RedHat 7.x RPM</a>
 <li> <a href="/aix/check-0.8.4-2.ppc.rpm">check-0.8.4 AIX 4.x RPM</a>
