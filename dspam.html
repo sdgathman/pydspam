@@ -19,7 +19,7 @@ ALT="Viewable With Any Browser" BORDER="0"></A>
 </map>
 
 </P>
-<h1 align=center>pydspam</h1>
+		<h1 align=center>pydspam</h1>
 <h3 align=center>Bayesian Message Filtering for Python<br>
 			or<br>
 		Integrating Python with DSPAM<br>
@@ -30,7 +30,7 @@ ALT="Viewable With Any Browser" BORDER="0"></A>
   Stuart D. Gathman</a><br>
 This web page is written by Stuart D. Gathman<br>and<br>sponsored by
 <a href="http://www.bmsi.com">Business Management Systems, Inc.</a> <br>
-Last updated Sep 11, 2003</h4>
+Last updated Oct 16, 2003</h4>
 
 <a href="#download">Downloads</a>,<a href="#bugs">Bugs</a>,
 <a href="#triage">Header Triage</a>
@@ -307,17 +307,25 @@ dspam, and unit tests will work around AIX next release.
 Release 2.6.5.2-1 fixes many memory leaks (important for libdspam and 
 dspam-python).  RPM installs both optin and optout versions of dspam,
 with optout symlinked as the default.
+<p>
+Release 2.6.5.2-3 includes pydspam-1.1.3
 
 <h3> Binary RPMs </h3>
 
   <h4> RedHat 7.2 </h4>
 <menu>
+<li><a href="/linux/rh72/dspam-2.6.5.2-3.i386.rpm">dspam-2.6.5.2-3.i386.rpm</a>
+  RedHat 7.2 binary RPM
+<li><a href="/linux/rh72/dspam-devel-2.6.5.2-3.i386.rpm">dspam-devel-2.6.5.2-3.i386.rpm</a>
+  Development headers and static library
+<li><a href="/linux/rh72/dspam-python-2.6.5.2-3.i386.rpm">dspam-python-2.6.5.2-3.i386.rpm</a>
+  Python module and utilities for pydspam-1.1.3
 <li><a href="/linux/rh72/dspam-2.6.5.2-2.i386.rpm">dspam-2.6.5.2-2.i386.rpm</a>
   RedHat 7.2 binary RPM
 <li><a href="/linux/rh72/dspam-devel-2.6.5.2-2.i386.rpm">dspam-devel-2.6.5.2-2.i386.rpm</a>
   Development headers and static library
 <li><a href="/linux/rh72/dspam-python-2.6.5.2-2.i386.rpm">dspam-python-2.6.5.2-2.i386.rpm</a>
-  Python module and utilities
+  Python module and utilities for pydspam-1.1.2
 <li><a href="/linux/rh72/dspam-2.6.5-1.i386.rpm">dspam-2.6.5-1.i386.rpm</a>
   RedHat 7.2 binary RPM
 <li><a href="/linux/rh72/dspam-devel-2.6.5-1.i386.rpm">dspam-devel-2.6.5-1.i386.rpm</a>
@@ -408,8 +416,10 @@ a release of dspam from source.  They can be recompiled to match your
 distribution.  To disable building the <a href="#python">python package</a>,
 install the source RPM and edit the spec file.
 <menu>
+<li> <a href="/linux/rh72/dspam-2.6.5.2-3.src.rpm">dspam-2.6.5.2-3.src.rpm</a>
+  Source RPM (tested on RedHat 7.x and AIX 4.1.5) with pydspam-1.1.3
 <li> <a href="/linux/rh73/dspam-2.6.5.2-2.src.rpm">dspam-2.6.5.2-2.src.rpm</a>
-  Source RPM (tested on RedHat 7.x and AIX 4.1.5)
+  Source RPM (tested on RedHat 7.x and AIX 4.1.5) with pydspam-1.1.2
 <li> <a href="/linux/rh73/dspam-2.6.5-1.src.rpm">dspam-2.6.5-1.src.rpm</a>
   Source RPM (tested on RedHat 7.2)
 <li> <a href="/linux/rh73/dspam-2.6.4.01-2.src.rpm">dspam-2.6.4.01-2.src.rpm</a>
@@ -457,7 +467,9 @@ any version of db >= 3 beginning with dspam-2.6.4 </a>
 
 <h3> Sources </h3>
 <menu>
-<li> <a href="/python/pydspam-1.1.2.tar.gz">pydspam-1.1.1.tar.gz</a>
+<li> <a href="/python/pydspam-1.1.3.tar.gz">pydspam-1.1.3.tar.gz</a>
+  Python interface to libdspam and some dspam utilities in python.
+<li> <a href="/python/pydspam-1.1.2.tar.gz">pydspam-1.1.2.tar.gz</a>
   Python interface to libdspam and some dspam utilities in python.
 <li> <a href="/python/pydspam-1.1.1.tar.gz">pydspam-1.1.1.tar.gz</a>
   Python interface to libdspam and some dspam utilities in python.
