@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.10  2003/09/06 07:09:38  stuart
+# Option to save recipients in quarantined message.
+#
 # Revision 2.9  2003/09/06 05:17:35  stuart
 # Update text format stats used by CGI script.
 #
@@ -167,42 +170,45 @@ class DSpamDirectory(object):
     dspam_dict,sigfile,mbox = self.user_files(user)
 
     opts = dspam.DSF_CHAINED|dspam.DSF_SIGNATURE|dspam.DSF_NOLOCK
-    ds = dspam.dspam(dspam_dict,dspam.DSM_PROCESS,opts)
-    ds.lock()
+    savmask = os.umask(0664) # mail group must be able write dict and sig
     try:
+      ds = dspam.dspam(dspam_dict,dspam.DSM_PROCESS,opts)
       txt = convert_eol(txt)
-      ds.process(txt)
-      self.totals = ds.totals
-      self.probability = ds.probability
-      try: print >>open(self.dspam_stats,'w'),"%d,%d,%d,%d" % ds.totals
-      except: pass
-
-      sigkey = put_signature(ds.signature,sigfile,ds.result)
-      if not sigkey: return txt
-
+      ds.lock()
       try:
-	# add signature key to message
-	msg = mime.MimeMessage(StringIO.StringIO(txt))
-	add_signature_tag(msg,sigkey,ds.probability)
+	ds.process(txt)
+	self.totals = ds.totals
+	self.probability = ds.probability
+	try: print >>open(self.dspam_stats,'w'),"%d,%d,%d,%d" % ds.totals
+	except: pass
 
-	# quarantine mail if dspam thinks it looks spammy
-	if ds.result == dspam.DSR_ISSPAM:
-	  del msg['X-Dspam-Recipients']
-	  if recipients:
-	    msg['X-Dspam-Recipients'] = ', '.join(recipients)
+	sigkey = put_signature(ds.signature,sigfile,ds.result)
+	if not sigkey: return txt
+
+	try:
+	  # add signature key to message
+	  msg = mime.MimeMessage(StringIO.StringIO(txt))
+	  add_signature_tag(msg,sigkey,ds.probability)
+
+	  # quarantine mail if dspam thinks it looks spammy
+	  if ds.result == dspam.DSR_ISSPAM:
+	    del msg['X-Dspam-Recipients']
+	    if recipients:
+	      msg['X-Dspam-Recipients'] = ', '.join(recipients)
+	    txt = msg.as_string()
+	    fp = open(mbox,'a')
+	    if not txt.startswith('From '):
+	      fp.write('From dspam %s\n' % time.ctime())
+	    fp.write(txt)
+	    fp.close()
+	    return None
 	  txt = msg.as_string()
-	  fp = open(mbox,'a')
-	  if not txt.startswith('From '):
-	    fp.write('From dspam %s\n' % time.ctime())
-	  fp.write(txt)
-	  fp.close()
-	  return None
-	txt = msg.as_string()
-      except: pass
+	except: pass
 
-    finally:
-      ds.unlock()
-      ds.destroy()
+      finally:
+	ds.unlock()
+	ds.destroy()
+    finally: os.umask(savmask)
     return txt
 
   def _feedback(self,user,txt,op):
@@ -231,10 +237,13 @@ class DSpamDirectory(object):
     finally:
       ds.unlock()
     if not done:	# no tags in sig database, use full text
-      print 'No tags: Using full text'
-      opts = dspam.DSF_CHAINED|dspam.DSF_SIGNATURE|dspam.DSF_IGNOREHEADER
+      print 'No tags: Adding body text as spam corpus.'
+      opts = dspam.DSF_CHAINED|dspam.DSF_CORPUS|dspam.DSF_IGNOREHEADER
+      if op == dspam.DSM_ADDSPAM:
+	ds = dspam.dspam(dspam_dict,op,opts)
+      else:
+	ds = dspam.dspam(dspam_dict,dspam.DSM_PROCESS,opts)
       txt = convert_eol(txt)
-      ds = dspam.dspam(dspam_dict,op,opts)
       ds.process(txt)
     self.totals = ds.totals
     return txt
