@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.20  2003/11/09 00:30:36  stuart
+# Queue large messages for delayed processing.
+#
 # Revision 2.19  2003/11/01 18:53:17  stuart
 # Strip nulls from incoming messages
 #
@@ -264,16 +267,16 @@ class DSpamDirectory(object):
     sig = None
     sigs = []
     queue = False
-    if len(txt) > 500000:
-      queue = True
+    #if len(txt) > 500000:
+    #  queue = True
     if not queue:
       ds = dspam.dspam(dspam_dict,op,opts)
       try:
 	ds.lock()
       except:
-	queue = True
+	queue = True # lock failed, queue for later
     if queue:
-      # lock failed, queue for later
+      # queue for later
       if not txt.startswith('From '):
         txt = 'From %s %s\n' % (user,time.ctime()) + txt
       if op == dspam.DSM_ADDSPAM:
