@@ -8,34 +8,41 @@
 <P ALIGN="CENTER"><A HREF="http://www.anybrowser.org/campaign/">
 <IMG SRC="/art/brain1.gif"
 ALT="Viewable With Any Browser" BORDER="0"></A>
-<img src="/art/sepschool2.gif" width="468" height="60" usemap="#SepSchool"
-  border="0" alt="Should we end government education?">
- <map name="SepSchool">
-   <area shape="rect" coords="351,30,400,57" href="http://www.sepschool.org/Proc/" alt="Vote YES">
-   <area shape="rect" coords="406,29,455,56" href="http://209.24.29.72/NEP/" alt="Vote NO">
-  </map> 
+
+<img src="/art/banner_4.gif"
+	width="468" height="60" border="0" usemap="#banner_4" alt="Your vote?">
+<map name="banner_4">
+  <area shape="rect" coords="330,25,426,59"
+  	href="http://www.sepschool.org/survey/" alt="Vote NO">
+  <area shape="rect" coords="234,28,304,57"
+  	href="http://sepschool.org/" alt="Vote YES">
+</map>
+
 </P>
 <h1 align=center>pydspam</h1>
 <h3 align=center>Bayesian Message Filtering for Python<br>
 			or<br>
-		Integrating Python with DSPAM</h3>
+		Integrating Python with DSPAM<br>
+			and including<br>
+		    RPMs for DSPAM</h3>
 <h4 align=center>
   by <a href="mailto:%73%74%75%61%72%74%40%62%6D%73%69%2E%63%6F%6D">
   Stuart D. Gathman</a><br>
 This web page is written by Stuart D. Gathman<br>and<br>sponsored by
 <a href="http://www.bmsi.com">Business Management Systems, Inc.</a> <br>
-Last updated Aug 07, 2003</h4>
+Last updated Aug 27, 2003</h4>
 
 <a href="#download">Downloads</a>,<a href="#bugs">Bugs</a>,
 <a href="#triage">Header Triage</a>
 
 <p>
-This project provides fast <a href="http://www.python.org">Python</a>
-support for sophisticated bayesian
+This project provides <a href="http://www.python.org">Python</a>
+support for fast sophisticated bayesian
 message filtering.  It is based on the excellent 
-<a href="http://www.networkdweebs.com/software/dspam/">DSPAM</a> project
+<a href="http://www.nuclearelephant.com/projects/dspam/">DSPAM</a> project
 provided by
-<a href="mailto:j%6F%6E%61%74h%61%6E%40%6E%65%74work%64w%65%65%62%73%2E%63%6F%6D">Jonathan A. Zdziarski</a>.  
+<a href="mailto:j%6F%6E%61%74h%61%6E%40%6E%65%74work%64w%65%65%62%73%2E%63%6F%6D">Jonathan A. Zdziarski</a>.  It also provides easy to use RPMs for
+dspam and dspam-python.
 Neither BMS or Stuart Gathman are affiliated with Jonathan Zdziarski 
 or <a href="http://networkdweebs.com/">Network Dweebs</a>, except as
 enthusiastic users of their free product.  Dspam was chosen because
@@ -47,7 +54,7 @@ What is DSPAM?  Here is an excerpt from
 the DSPAM project README:
 
 <blockquote>
-<a href="http://www.networkdweebs.com/software/dspam/">DSPAM</a> is an
+<a href="http://www.nuclearelephant.com/projects/dspam/">DSPAM</a> is an
 open-source, freely available anti-spam solution designed to combat
 unsolicited commercial email using Baye's theorem of combined probabilities.
 The result is an administratively maintenance free system capable of learning 
@@ -73,7 +80,7 @@ Many new approaches have also been implemented by DSPAM.
 
 <h2> Dspam RPM </h2>
 
-To make using pydspam as conventient as possible, I provide
+To make using pydspam as convenient as possible, I provide
 an RPM for dspam, which uses the source code from Network Dweebs largely
 unchanged. RPM by its nature uses pristine sources from the vendor,
 and applies patches for any necessary local changes.
@@ -157,7 +164,7 @@ a simple change to milter-0.5.5 I am testing:
 <p>
 The dictionary is the one maintained by the dspam delivery agent installed
 with the dspam package.  Scanning the headers in the milter allows us
-to REJECT spam connections before they've wasted all our bandwidth.
+to REJECT common spams without a lot of processing.
 <p>
 To show just how bad the spam problem is, here are statistics for our
 domain with just 6 users.  Two users (including me) are published on 
@@ -277,11 +284,34 @@ Release 2.6.2.02-2 fixes space printing loop in dspam_stats.  No unit test yet.
 Release 2.6.3-2 now installs CGI script for access to quarantined mail.
 The RPM creates a 'dspam' user which is in the 'mail' group, and the
 CGI script runs as the dspam user.  
+<p>
+Release 2.6.4 includes an optional smart-alias feature for reporting spam. To
+use, add an alias like the following:
+<pre>
+spam:	"|/usr/local/bin/addspam"
+</pre>
+
+And edit /usr/local/bin/addspam to check for your local domain.
+<p>
+Release 2.6.4.01 includes a patch for empty input, and a fix for 
+boundaries with space chars.
 
 <h3> Binary RPMs </h3>
 
   <h4> RedHat 7.2 </h4>
 <menu>
+<li><a href="/linux/rh72/dspam-2.6.4.01-1.i386.rpm">dspam-2.6.4.01-1.i386.rpm</a>
+  RedHat 7.2 binary RPM
+<li><a href="/linux/rh72/dspam-devel-2.6.4.01-1.i386.rpm">dspam-devel-2.6.4.01-1.i386.rpm</a>
+  Development headers and static library
+<li><a href="/linux/rh72/dspam-python-2.6.4.01-1.i386.rpm">dspam-python-2.6.4.01-1.i386.rpm</a>
+  Python module and utilities
+<li><a href="/linux/rh72/dspam-2.6.4-1.i386.rpm">dspam-2.6.4-1.i386.rpm</a>
+  RedHat 7.2 binary RPM
+<li><a href="/linux/rh72/dspam-devel-2.6.4-1.i386.rpm">dspam-devel-2.6.4-1.i386.rpm</a>
+  Development headers and static library
+<li><a href="/linux/rh72/dspam-python-2.6.4-1.i386.rpm">dspam-python-2.6.4-1.i386.rpm</a>
+  Python module and utilities
 <li><a href="/linux/rh72/dspam-2.6.3-2.i386.rpm">dspam-2.6.3-2.i386.rpm</a>
   RedHat 7.2 binary RPM
 <li><a href="/linux/rh72/dspam-devel-2.6.3-2.i386.rpm">dspam-devel-2.6.3-2.i386.rpm</a>
@@ -304,6 +334,12 @@ CGI script runs as the dspam user.
 
   <h4> RedHat 7.3 </h4>
 <menu>
+<li><a href="/linux/rh73/dspam-2.6.4.01-1.i386.rpm">dspam-2.6.4.01-1.i386.rpm</a>
+  RedHat 7.3 binary RPM
+<li><a href="/linux/rh73/dspam-devel-2.6.4.01-1.i386.rpm">dspam-devel-2.6.4.01-1.i386.rpm</a>
+  Development headers and static library
+<li><a href="/linux/rh73/dspam-python-2.6.4.01-1.i386.rpm">dspam-python-2.6.4.01-1.i386.rpm</a>
+  Python module and utilities
 <li><a href="/linux/rh73/dspam-2.6.3-2.i386.rpm">dspam-2.6.3-2.i386.rpm</a>
   RedHat 7.3 binary RPM
 <li><a href="/linux/rh73/dspam-devel-2.6.3-2.i386.rpm">dspam-devel-2.6.3-2.i386.rpm</a>
@@ -320,6 +356,8 @@ CGI script runs as the dspam user.
 
   <h4> AIX 4.x </h4>
 <menu>
+<li> <a href="/aix/dspam-2.6.4.01-2.ppc.rpm">dspam-2.6.4.01-2.ppc.rpm</a>
+  AIX 4.x binary RPM
 <li> <a href="/aix/dspam-2.6.2-3.ppc.rpm">dspam-2.6.2-3.ppc.rpm</a>
   AIX 4.x binary RPM
 <li><a href="/aix/dspam-devel-2.6.2-3.ppc.rpm">dspam-devel-2.6.2-3.ppc.rpm</a>
@@ -328,22 +366,33 @@ CGI script runs as the dspam user.
   Python module and utilities
 </menu>
 
-<h3> Source RPMs </h3>
+<h3> <a name="SRPM">Source RPMs</a> </h3>
 Source RPMs contain the sources, patches, and spec file to build
 a release of dspam from source.  They can be recompiled to match your
 distribution.  To disable building the <a href="#python">python package</a>,
 install the source RPM and edit the spec file.
 <menu>
-<li> <a href="/linux/rh73/dspam-2.6.3-2.src.rpm">dspam-2.6.3-2.src.rpm</a>
+<li> <a href="/linux/rh73/dspam-2.6.4.01-2.src.rpm">dspam-2.6.4.01-2.src.rpm</a>
+  Source RPM (tested on RedHat 7.x and AIX 4.1.5)
+<li> <a href="/linux/rh73/dspam-2.6.4-1.src.rpm">dspam-2.6.4-1.src.rpm</a>
   Source RPM (tested on RedHat 7.2)
+<li> <a href="/linux/rh73/dspam-2.6.3-2.src.rpm">dspam-2.6.3-2.src.rpm</a>
+  Source RPM (tested on RedHat 7.x)
 <li> <a href="/linux/rh73/dspam-2.6.2.02-2.src.rpm">dspam-2.6.2.02-2.src.rpm</a>
   Source RPM (tested on RedHat 7.x)
 <li> <a href="/linux/rh73/dspam-2.6.2-3.src.rpm">dspam-2.6.2-3.src.rpm</a>
   Source RPM (tested on RedHat 7.x and AIX 4.1.5).
 </menu>
 
-<h3> Sources </h3>
+<h3> <a name="patches">Patches</a> </h3>
 <menu>
+<li> <a href="dspam-2.6.4.patch">
+  Patches against the original dspam-2.6.4 source</a>
+  Fixes bugs and adds unit tests and _ds_tokenize entry point.
+<li> <a href="dspam-db3-2.6.4.patch"> Patches to configure to compile with
+any version of db >= 3 beginning with dspam-2.6.4 </a>
+  This is in the Source RPM, but those downloading the raw source might
+  need it also.
 <li> <a href="dspam-2.6.3.patch">
   Patches against the original dspam-2.6.3 source</a>
   Fixes bugs and adds unit tests and _ds_tokenize entry point.
@@ -356,8 +405,14 @@ install the source RPM and edit the spec file.
 <li> <a href="dspam-db3.patch"> Patches to configure to compile with db3 </a>
   This is in the Source RPM, but those downloading the raw source might
   need it also.
+</menu>
+
+<h3> Sources </h3>
+<menu>
 <li> <a href="/python/pydspam-1.0.tar.gz">pydspam-1.0.tar.gz</a>
   Python interface to libdspam and some dspam utilities in python.
+<li> <a href="/linux/dspam-2.6.4.01.tar.gz">
+	dspam-2.6.4.01 source (dspam site does not have archives)</a>
 <li> <a href="/linux/dspam-2.6.3.tar.gz">
 	dspam-2.6.3 source (dspam site does not have archives)</a>
 <li> <a href="/linux/dspam-2.6.2.02.tar.gz">

@@ -25,6 +25,9 @@
 
 /* 
  * $Log$
+ * Revision 2.8  2003/07/30 19:45:30  stuart
+ * Pydspam project.
+ *
  * Revision 2.6  2003/07/10 12:53:11  stuart
  * Python support
  *
@@ -164,8 +167,8 @@ _dspam_process(PyObject *dspamobj, PyObject *args) {
 	  self->sig = 0;
 	}
       }
-      free(buf);
     }
+    free(buf);
   }
   else {
     Py_XDECREF(self->sig);

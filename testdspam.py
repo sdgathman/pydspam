@@ -47,6 +47,23 @@ class DSpamTestCase(unittest.TestCase):
     self.assertEqual(ds.totals,(1,0,0,0))
     ds.destroy()
 
+  # test base64 decoding in libdspam
+  def testCopyback(self):
+    try: os.unlink(fname)
+    except: pass
+    ds = dspam(fname,DSM_PROCESS,DSF_CHAINED|DSF_COPYBACK)
+    msg = open('test/bounce').read()
+    ds.process('\n'.join(msg.splitlines()))
+    copyback = ds.copyback
+    self.failUnless(len(copyback) > 0 and len(copyback) < len(msg))
+    # test no base64 segment
+    msg = open('test/amazon').read()
+    # copyback adds an extra newline - no big deal
+    ds.process('\n'.join(msg.splitlines()))
+    copyback = ds.copyback
+    self.failUnless(copyback == msg)
+    ds.destroy()
+    
   # test mime parameter parsing
   def testProcess(self):
     hlen = len(hams)
