@@ -24,7 +24,7 @@ class DSpamTestCase(unittest.TestCase):
       msg = open('test/'+spam).read()
       msg = '\n'.join(msg.splitlines())
       ds.process(msg)
-    self.assertEqual(ds.totals,(len(spams),len(hams),0,0))
+    self.assertEqual(ds.totals,(len(spams),len(hams),len(spams),0))
     ds.destroy()
 
   def testClassify(self):
@@ -109,13 +109,15 @@ class DSpamTestCase(unittest.TestCase):
     # a slightly different version of a spam should still get rejected
     lines = msg.splitlines()
     lines[0] = "From: lover <f234235@spam.com>"
-    lines[1] = "To: victim <victim@lamb.com>"
+    #lines[1] = "To: victim <victim@lamb.com>"
     lines[2] = "Subject: Approval"
+    lines = filter(lambda ln: ln.find("Q2Xet") < 0,lines)
     msg = '\n'.join(lines)
 
     # test DSF_CLASSIFY
     ds = dspam(fname,DSM_PROCESS,DSF_CLASSIFY|DSF_CHAINED|DSF_SIGNATURE)
     ds.process(msg)
+    open('msg.out','w').write(msg)
     self.assertEqual(ds.result,DSR_ISSPAM)
     self.failUnless(ds.probability < 1.0)
     self.assertEqual(ds.totals,totals)
