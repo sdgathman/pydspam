@@ -25,6 +25,9 @@
 
 /* 
  * $Log$
+ * Revision 2.12  2003/09/06 04:20:54  stuart
+ * ctx->message is an INOUT parameter, so destroy after dspam_process
+ *
  * Revision 2.11  2003/09/03 04:27:29  stuart
  * incorrect free
  *
@@ -60,14 +63,8 @@
 #include <pthread.h>
 #include <Python.h>
 #include <structmember.h>
-#include "../libdspam.h"
-
-/* These functions are not exported, but are necessary to replicate
- * the functionality of dspam. */
-int _ds_context_lock(DSPAM_CTX *);
-int _ds_context_unlock(DSPAM_CTX *);
-int _ds_file_lock(const char *);
-int _ds_file_unlock(const char *);
+#include <libdspam.h>
+#include <string.h>
 
 static PyObject *DspamError;
 
@@ -77,6 +74,7 @@ typedef struct {
   PyObject_HEAD
   DSPAM_CTX *ctx;	/* Dspam dictionary handle */
   PyObject *sig;
+  char *userdir;
 } dspam_Object;
 
 static void
@@ -86,6 +84,7 @@ _dspam_dealloc(PyObject *s) {
   if (ctx)
     dspam_destroy(ctx);
   Py_XDECREF(self->sig);
+  free(self->userdir);
   PyObject_DEL(self);
 }
 
@@ -99,6 +98,7 @@ _dspam_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
   if (self != 0) {
     self->ctx = 0;
     self->sig = 0;
+    self->userdir = 0;
   }
   return (PyObject *)self;
 }
@@ -106,19 +106,39 @@ _dspam_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
 static int
 _dspam_init(PyObject *dspam, PyObject *args, PyObject *kwds) {
   dspam_Object *self = (dspam_Object *)dspam;
-  static char *kwlist[] = {"name", "mode", "flags", 0};
-  const char *fname;
+  static char *kwlist[] = {"name", "mode", "flags", "group", "userdir",0};
+  const char *user;
+  const char *group = 0;
+  const char *userdir = 0;
   int mode;
   int flags = 0;
   if (self->ctx) {
     dspam_destroy(self->ctx);
     self->ctx = 0;
   }
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "si|i:dspam", kwlist,
-    &fname,&mode,&flags)) return -1;
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "si|iss:dspam", kwlist,
+    &user,&mode,&flags,&group,&userdir)) return -1;
 
-  self->ctx = dspam_init(fname,mode,flags);
-  if (self->ctx == 0) return -1;
+  if (userdir)
+    self->userdir = strdup(userdir);
+  _ds_setuserdir(self->userdir);
+  self->ctx = dspam_init(user,group,mode,flags);
+#ifdef DSM_CLASSIFY
+  if (self->ctx == 0 && mode == DSM_CLASSIFY) {
+    /* Jonathan's CLASSIFY needs funky stuff for first time users. */
+    DSPAM_CTX *ctx;
+    fprintf(stderr,"Retry ctx\n"); fflush(stderr);
+    ctx = dspam_init(user,group,DSM_PROCESS,flags);
+    dspam_destroy(ctx);
+    fprintf(stderr,"Created user\n"); fflush(stderr);
+    self->ctx = dspam_init(user,group,mode,flags);
+  }
+#endif
+  if (self->ctx == 0) {
+    PyErr_SetString(DspamError, "DSPAM context init failure");
+    return -1;
+  }
+  fprintf(stderr,"Got ctx\n"); fflush(stderr);
   return 0;
 }
 
@@ -148,6 +168,7 @@ _dspam_process(PyObject *dspamobj, PyObject *args) {
     if (!PyArg_ParseTuple(args, "s#:process",
 	  &ctx->signature->data,&ctx->signature->length)) return NULL;
   }
+  _ds_setuserdir(self->userdir);
   rc = dspam_process(ctx,message);
 
   /* We don't need ctx->message, and it overrides the text message
@@ -198,8 +219,7 @@ _dspam_process(PyObject *dspamobj, PyObject *args) {
   /* report error as exception */
   rc = ctx->result;
   if (rc != -1) {
-    PyObject *e = Py_BuildValue("iss",
-	rc,db_strerror(rc),ctx->dictionary);
+    PyObject *e = Py_BuildValue("iss", rc,db_strerror(rc),ctx->username);
     if (e) PyErr_SetObject(DspamError, e);
     return NULL;
   }
@@ -228,6 +248,9 @@ static PyObject *toDict(struct lht *freq) {
   } 
   return dict;
 }
+
+#if 0
+/* This has not been ported to 2.8 yet. */
 
 static char _dspam_tokenize__doc__[] =
 "tokenize(header,body,chained) -> dict\n\
@@ -261,18 +284,150 @@ _dspam_tokenize(PyObject *module, PyObject *args) {
   lht_destroy(freq);
   return dict;
 }
+#endif
+
+#ifdef PATH_MAX
+#	define	MAX_FILENAME_LENGTH	PATH_MAX
+#else
+#	define MAX_FILENAME_LENGTH	128
+#endif
+
+/* Lock timeout.  If lock cannot be acquired in this amount of time
+   (in seconds) the message is delivered without processing. */
+#define LOCK_TIMEOUT		20
+
+extern const char *_ds_userdir_path(const char *user,const char *ext);
+
+int
+quarantine_lock (const char *username) {
+  char filename[MAX_FILENAME_LENGTH];
+  int retry = 0, pid;
+  char scratch[1024];
+  char myhostname[1024];
+  char *hostname, *spid;
+  FILE *file;
+  struct stat s;
+
+  gethostname (myhostname, sizeof (myhostname));
+
+  strcpy (filename, _ds_userdir_path (username, "qlock"));
+
+  //LOGDEBUG ("acquiring quarantine lock %s", filename);
+
+  file = fopen (filename, "r");
+
+  while (file != NULL) {
+    if (fgets (scratch, sizeof (scratch), file) != NULL) {
+      //LOGDEBUG ("waiting for quarantine lock");
+      hostname = strtok (scratch, ":");
+      spid = strtok (NULL, ":");
+      fclose (file);
+      if (hostname != NULL && !strcmp (hostname, myhostname) && spid != NULL) {
+        //LOGDEBUG ("hostname matches %s.  checking pid", hostname);
+        pid = atoi (spid);
+        if (kill (pid, 0)) {
+          retry = 0;
+          unlink (filename);
+        }
+        else {
+          retry++;
+        }
+      }
+      else {
+        retry++;
+        if (!stat (filename, &s)) {
+          if (time (NULL) - s.st_mtime > 60 * 20) {
+            //LOGDEBUG ("removing stale quarantine lock %s", filename);
+            retry = 0;
+            unlink (filename);
+          }
+        }
+        else {
+          retry = 0;
+          unlink (filename);
+        }
+      }
+
+    }
+    else {
+      retry = 0;
+      fclose (file);
+      unlink (filename);
+    }
+
+    if (retry >= LOCK_TIMEOUT) {
+      //LOG (LOG_NOTICE, "quarantine lock timeout");
+      return ELOCK;
+    }
+
+    if (retry) {
+      //LOGDEBUG ("waiting for quarantine lock");
+      sleep (1);
+    }
+
+    file = fopen (filename, "r");
+  }
+
+  file = fopen (filename, "w");
+  if (file != NULL) {
+    fprintf (file, "%s:%ld\n", myhostname, (long) getpid ());
+    fclose (file);
+  }
+  else {
+    //LOG (LOG_WARNING,
+    //     "quarantine lock failed: %s: could not create file",
+    //     strerror (errno));
+    return EFILE;
+  }
+
+  /* Verify the quarantine lock */
+  file = fopen (filename, "r");
+  if (file == NULL) {
+    //LOG (LOG_WARNING,
+    //     "quarantine lock failed: %s: could not create file",
+    //     strerror (errno));
+    return EFILE;
+  }
+
+  if (fgets (scratch, sizeof (scratch), file) == NULL) {
+    //LOG (LOG_WARNING, "quarantine lock failed: lock pid does not match mine");
+    fclose (file);
+    return quarantine_lock (username);
+  }
+
+  fclose (file);
+
+  hostname = strtok (scratch, ":");
+  spid = strtok (NULL, ":");
+  if (hostname == NULL || spid == NULL || strcmp (hostname, myhostname)
+      || atoi (spid) != getpid ()) {
+    //LOGDEBUG ("quarantine lock failed.  retrying.");
+    return quarantine_lock (username);
+  }
+
+  return 0;
+}
+
+int
+quarantine_unlock (const char *username) {
+  char filename[MAX_FILENAME_LENGTH];
+
+  strcpy (filename, _ds_userdir_path (username, "qlock"));
+
+  //LOGDEBUG ("freeing quarantine lock for '%s': %s", username, filename);
+  return unlink (filename);
+}
 
 static char _dspam_lock__doc__[] =
 "lock() -> None\n\
-  Lock the DSPAM context.  When used with the DSF_NOLOCK flag\n\
-  allows the sig database and other data to be locked also.";
+  Lock the QUARANTINE mailbox for this context.";
 
 static PyObject *
 _dspam_lock(PyObject *dspamctx, PyObject *args) {
   dspam_Object *self = (dspam_Object *)dspamctx;
   DSPAM_CTX *ctx = self->ctx;
   if (!PyArg_ParseTuple(args, ":lock")) return NULL;
-  if (!ctx || _ds_context_lock(ctx)) {
+  if (!ctx || quarantine_lock(ctx->username)) {
     PyErr_SetString(DspamError, "Lock failed");
     return NULL;
   }
@@ -282,18 +437,22 @@ _dspam_lock(PyObject *dspamctx, PyObject *args) {
 
 static char _dspam_unlock__doc__[] =
 "unlock() -> None\n\
-  Unlock the DSPAM context.";
+  Unlock the QUARANTINE mailbox.";
 
 static PyObject *
 _dspam_unlock(PyObject *dspamctx, PyObject *args) {
   dspam_Object *self = (dspam_Object *)dspamctx;
   DSPAM_CTX *ctx = self->ctx;
   if (!PyArg_ParseTuple(args, ":unlock")) return NULL;
-  if (ctx) _ds_context_unlock(ctx);
+  if (ctx) quarantine_unlock(ctx->username);
   Py_INCREF(Py_None);
   return Py_None;
 }
 
+#if 0
+/* File lock was typically used to lock the quarantine.  Lock file extension
+ * has changed from 'lock' to 'qlock' for 2.8, so we have to disable this
+ * feature to prevent bugs. */
 static char _dspam_file_lock__doc__[] =
 "file_lock(filename) -> None\n\
   Lock a file using the DSPAM locking protocol.\n\
@@ -324,6 +483,7 @@ _dspam_file_unlock(PyObject *module, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }
+#endif
 
 static char _dspam_destroy__doc__[] =
 "destroy() -> None\n\
@@ -361,7 +521,8 @@ _dspam_getprob(dspam_Object *self, void *closure) {
 static PyObject *
 _dspam_getdict(dspam_Object *self, void *closure) {
   DSPAM_CTX *ctx = self->ctx;
-  if (ctx) return Py_BuildValue("s",ctx->dictionary);
+  if (ctx)
+    return Py_BuildValue("(ss)",ctx->username,ctx->group);
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -369,9 +530,10 @@ _dspam_getdict(dspam_Object *self, void *closure) {
 static PyObject *
 _dspam_gettot(dspam_Object *self, void *closure) {
   DSPAM_CTX *ctx = self->ctx;
-  if (ctx) return Py_BuildValue("(iiii)",
+  if (ctx) return Py_BuildValue("(iiiiii)",
       ctx->totals.total_spam,ctx->totals.total_innocent,
-      ctx->totals.spam_misses,ctx->totals.false_positives);
+      ctx->totals.spam_misclassified,ctx->totals.innocent_misclassified,
+      ctx->totals.spam_corpusfed,ctx->totals.innocent_corpusfed);
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -387,21 +549,23 @@ static PyMethodDef dspamctx_methods[] = {
 static PyMemberDef dspamctx_members[] = {
   { "signature",T_OBJECT,offsetof(dspam_Object,sig),RO,
     "Statistical Signature of message" },
+  { "userdir",T_STRING,offsetof(dspam_Object,userdir),RO,
+    "base directory or url for dspam tables" },
   {0},
 };
 
 static PyGetSetDef dspamctx_getsets[] = {
   { "result", (getter)_dspam_getresult, NULL, "Result of processing" },
   { "probability", (getter)_dspam_getprob, NULL, "Probability of SPAM" },
-  { "dictionary", (getter)_dspam_getdict, NULL, "Dictionary file name" },
+  { "dictionary", (getter)_dspam_getdict, NULL, "user and group" },
   { "totals", (getter)_dspam_gettot, NULL, "(SPAM,INNOCENT,MISS,FP)" },
   {NULL},
 };
 
 static PyMethodDef _dspam_methods[] = {
-   { "tokenize", _dspam_tokenize, METH_VARARGS, _dspam_tokenize__doc__},
-   { "file_lock",_dspam_file_lock,METH_VARARGS,_dspam_file_lock__doc__},
-   { "file_unlock",_dspam_file_unlock,METH_VARARGS,_dspam_file_unlock__doc__},
+// { "tokenize", _dspam_tokenize, METH_VARARGS, _dspam_tokenize__doc__},
+// { "file_lock",_dspam_file_lock,METH_VARARGS,_dspam_file_lock__doc__},
+// { "file_unlock",_dspam_file_unlock,METH_VARARGS,_dspam_file_unlock__doc__},
    { NULL, NULL }
 };
 
@@ -468,10 +632,21 @@ initdspam(void) {
 #define CONST(n) PyModule_AddIntConstant(m,#n, n)
 /* DSPAM Flags */
    CONST(DSF_CHAINED); CONST(DSF_SIGNATURE);
-   CONST(DSF_NOLOCK); CONST(DSF_COPYBACK);
+   CONST(DSF_COPYBACK);
    CONST(DSF_IGNOREHEADER); CONST(DSF_CORPUS);
+#ifdef DSF_NOLOCK
+   CONST(DSF_NOLOCK);
+#else
+   /* dspam-2.8 takes away nolock, so ignore it. */
+   PyModule_AddIntConstant(m,"DSF_NOLOCK",0);
+#endif
+   /* dspam-2.8 uses CLASSIFY mode instead of flag. */
 #ifdef DSF_CLASSIFY
    CONST(DSF_CLASSIFY);
+   PyModule_AddIntConstant(m,"DSM_CLASSIFY",DSM_PROCESS);
+#else
+   CONST(DSM_CLASSIFY);
+   PyModule_AddIntConstant(m,"DSF_CLASSIFY",0);
 #endif
 /* DSPAM Processor modes */
    CONST(DSM_PROCESS); CONST(DSM_ADDSPAM); CONST(DSM_FALSEPOSITIVE);
