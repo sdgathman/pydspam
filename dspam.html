@@ -21,7 +21,7 @@ ALT="Viewable With Any Browser" BORDER="0"></A>
   Stuart D. Gathman</a><br>
 This web page is written by Stuart D. Gathman<br>and<br>sponsored by
 <a href="http://www.bmsi.com">Business Management Systems, Inc.</a> <br>
-Last updated Jul 12, 2003</h4>
+Last updated Jul 14, 2003</h4>
 
 This project adds Python support, bug fixes, and additional utilities
 to the excellent 
@@ -75,10 +75,100 @@ a built-in unit testing framework.  The C tests use the
 <a href="http://check.sourceforge.net">check project</a>.  The RPM build
 procedure does not attempt to build or run the unit tests, so the check
 framework is not needed to build the RPM.
-<p>
+
+<h2> Dspam and Python Milter </h2>
+
 For a really powerful mail filtering system, combine the DSPAM Python
 module with <a href="http://www.sendmail.org">sendmail</a> and
-<a href="milter.html">Python Milter</a>.
+<a href="milter.html">Python Milter</a>.  For instance, here is
+a simple change to milter-0.5.5 I am testing:
+<pre>
+*** bms.py	Mon Jul 14 16:26:31 2003
+--- dspambms.py	Mon Jul 14 16:24:34 2003
+***************
+*** 91,96 ****
+--- 91,97 ----
+  import StringIO
+  import rfc822
+  import mime
++ import dspam
+  import Milter
+  import tempfile
+  import ConfigParser
+***************
+*** 120,125 ****
+--- 121,127 ----
+  internal_connect = ()
+  internal_domains = ()
+  smart_alias = {}
++ dspam_dict = '/var/log/milter/dspam/bms.dict'
+  
+  class MilterConfigParser(ConfigParser.ConfigParser):
+  
+***************
+*** 230,235 ****
+--- 232,243 ----
+      if not rcpt in self.redirect_list:
+        self.redirect_list.append(rcpt)
+  
++   # addheader can only be called from eom().  This accumulates added headers
++   # which can then be applied by alter_headers()
++   def add_header(self,name,val):
++     self.new_headers.append((name,val))
++     self.log('%s: %s' % (name,val))
++ 
+    def connect(self,hostname,unused,hostaddr):
+      self.internal_connection = 0
+      if hostaddr and len(hostaddr) > 0:
+***************
+*** 263,268 ****
+--- 271,277 ----
+      self.discard = 0
+      self.redirect_list = []
+      self.discard_list = []
++     self.new_headers = []
+      t = parse_addr(f)
+      if len(t) == 2:
+        domain = t[1]
+***************
+*** 387,392 ****
+--- 396,414 ----
+      self.tempname = fname = tempfile.mktemp(".defang")
+      self.fp = open(fname,"w+b")
+      self.fp.write(headers)	# IOError (e.g. disk full) causes TEMPFAIL
++     # check if headers are really spammy
++     if not self.internal_connection:
++       ds = dspam.dspam(dspam_dict,dspam.DSM_PROCESS,
++         dspam.DSF_CHAINED|dspam.DSF_CLASSIFY)
++       try:
++         ds.process(headers)
++         if ds.probability > 0.93:
++           self.log('REJECT: X-DSpam-HeaderScore: %f' % ds.probability)
++ 	  self.setreply('554','5.7.1','Your Message looks spammy')
++ 	  return Milter.REJECT
++ 	self.add_header('X-DSpam-HeaderScore','%f'%ds.probability)
++       finally:
++         ds.destroy()
+      return Milter.CONTINUE
+  
+    def body(self,chunk):		# copy body to temp file
+***************
+*** 436,441 ****
+--- 458,465 ----
+      if self.hidepath: del msg['Received']
+  
+      self.alter_recipients(self.discard_list,self.redirect_list)
++     for name,val in self.new_headers:
++       self.addheader(name,val)
+  
+      # filter leaf attachments through _chk_attach
+      try:
+</pre>
+
+The dictionary is the one maintained by the dspam delivery agent installed
+with the dspam package.  Scanning the headers in the milter allows us
+to REJECT spam connections before they've wasted all our bandwidth.
+I plan on implementing a complete milter based dspam solution in milter-0.5.6.
 
 <h2> Downloads </h2>
 
