@@ -66,7 +66,7 @@ class pyDSpamTestCase(unittest.TestCase):
     ds = self.ds
     msgs = []
     # check that all kinds of messages get properly tagged
-    for fname in ('samp1','spam1','spam7','spam8','spam44','test8'):
+    for fname in ('samp1','spam1','spam7','spam8','spam44','test8','virus'):
       txt = open(os.path.join('test',fname)).read()
       msgs.append(ds.check_spam('tonto',txt))
 
