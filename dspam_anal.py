@@ -6,6 +6,7 @@ import dspam
 import struct
 import time
 import os
+import mime
 
 userdir = '/var/lib/dspam'
 maxtokens = 15
@@ -52,8 +53,14 @@ def load_stat(db,crc,totals):
   return probability,spam_hits,innocent_hits
 
 def analyzeMessage(ds,fp,headeronly=0,maxstat=15):
-  msg = fp.read()
+  msg = mime.MimeMessage(fp)
+  for part in msg.walk():
+    if part.get_main_type() == 'text':
+      txt = part.get_payload(decode=True)
+      #del msg["content-transfer-encoding"]
+      msg.set_payload(txt)
   fp.close()
+  msg = msg.as_string()
   if headeronly:
     hdr,body = msg.split('\n\n',1)
     del msg

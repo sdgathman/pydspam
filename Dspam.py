@@ -1,5 +1,9 @@
 #
 # $Log$
+# Revision 2.13  2003/10/16 16:25:16  stuart
+# Test for and fix tag not being found in base64 encoded segments.
+# We fix by reencoding as quoted printable.
+#
 # Revision 2.12  2003/10/16 02:18:03  stuart
 # Support for queueing addspams which get a lock timeout.
 #
@@ -130,7 +134,7 @@ def extract_signature_tags(txt):
       txt = txt[:beg] + txt[end+1:]
   return (txt,tags)
 
-def parse_groups(groupfile):
+def parse_groups(groupfile,dups=False):
   "Parse group file, return map from user -> group or none"
   groups = {}
   try:
@@ -138,7 +142,10 @@ def parse_groups(groupfile):
     for ln in fp.readlines():
       group,users = ln.strip().split(':',1)
       for user in users.split(','):
-        groups[user] = group
+        if dups:
+	  groups.setdefault(user,[]).append(group)
+	else:
+	  groups[user] = group
     fp.close()
   except: pass
   return groups
@@ -150,9 +157,12 @@ def convert_eol(txt):
 
 class DSpamDirectory(object):
 
+  def _log(self,*msg): pass
+
   def __init__(self,userdir):
     self.userdir = userdir
     self.groupfile = os.path.join(userdir,'group')
+    self.log = self._log
 
   def get_group(self,user):
     return parse_groups(self.groupfile).get(user,user)
@@ -219,7 +229,7 @@ class DSpamDirectory(object):
   def _feedback(self,user,txt,op):
     dspam_dict,sigfile,mbox = self.user_files(user)
     opts = dspam.DSF_CHAINED|dspam.DSF_SIGNATURE|dspam.DSF_NOLOCK
-    done = False
+    sig = None
     ds = dspam.dspam(dspam_dict,op,opts)
     try:
       ds.lock()
@@ -243,6 +253,7 @@ class DSpamDirectory(object):
       try:
 	txt,tags = extract_signature_tags(txt)
 	for tag in tags:
+	  self.log("TAG:",tag);
 	  if db.has_key(tag):
 	    data = db[tag]
 	    sig = data[4:]	# discard timestamp
@@ -254,15 +265,14 @@ class DSpamDirectory(object):
 	      status = ''
 	    ds.process(sig)	# reverse stats
 	    del db[tag]
-	    done = True
 	    try: print >>open(self.dspam_stats,'w'),"%d,%d,%d,%d" % ds.totals
 	    except: pass
       finally:
 	db.close()
     finally:
       ds.unlock()
-    if not done:	# no tags in sig database, use full text
-      print 'No tags: Adding body text as spam corpus.'
+    if not sig:	# no tags in sig database, use full text
+      self.log('No tags: Adding body text as spam corpus.')
       opts = dspam.DSF_CHAINED|dspam.DSF_CORPUS|dspam.DSF_IGNOREHEADER
       if op == dspam.DSM_ADDSPAM:
 	ds = dspam.dspam(dspam_dict,op,opts)
@@ -271,6 +281,17 @@ class DSpamDirectory(object):
       txt = convert_eol(txt)
       ds.process(txt)
     self.totals = ds.totals
+    # innoculate other users
+    if sig:
+      innoc_file = os.path.join(self.userdir,'innoculation')
+      users = parse_groups(innoc_file,dups=True).get(user,[])
+      opts = dspam.DSF_CORPUS|dspam.DSF_CHAINED|dspam.DSF_SIGNATURE
+      for u in users:
+        self.log('INNOC:',u)
+	u_grp = self.get_group(u)
+	u_dict = os.path.join(self.userdir,u_grp+'.dict')
+	ds = dspam.dspam(u_dict,dspam.DSM_ADDSPAM,opts)
+	ds.process(sig)
     return txt
 
   def add_spam(self,user,txt):

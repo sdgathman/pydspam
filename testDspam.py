@@ -20,6 +20,10 @@ class pyDSpamTestCase(unittest.TestCase):
     fp = open(ds.groupfile,'w')
     fp.write('\n'.join([ "bms:stuart,ed,alb,dmm", "unilit:sil,larry" ])+'\n')
     fp.close()
+    # innoculations
+    fp = open(os.path.join(userdir,'innoculation'),'w')
+    fp.write('\n'.join([ "larry:tonto,stuart", "stuart:sil,tonto" ])+'\n')
+    fp.close()
     self.ds = ds
   
   def testGroups(self):
