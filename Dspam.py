@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.19  2003/11/01 18:53:17  stuart
+# Strip nulls from incoming messages
+#
 # Revision 2.18  2003/10/28 01:05:59  stuart
 # Innoculate with all signatures found
 #
@@ -260,10 +263,16 @@ class DSpamDirectory(object):
     opts = dspam.DSF_CHAINED|dspam.DSF_SIGNATURE|dspam.DSF_NOLOCK
     sig = None
     sigs = []
-    ds = dspam.dspam(dspam_dict,op,opts)
-    try:
-      ds.lock()
-    except:
+    queue = False
+    if len(txt) > 500000:
+      queue = True
+    if not queue:
+      ds = dspam.dspam(dspam_dict,op,opts)
+      try:
+	ds.lock()
+      except:
+	queue = True
+    if queue:
       # lock failed, queue for later
       if not txt.startswith('From '):
         txt = 'From %s %s\n' % (user,time.ctime()) + txt
