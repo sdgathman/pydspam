@@ -116,6 +116,7 @@ rm -rf $RPM_BUILD_ROOT
 - Dspam.py: handle tags changed to multiline HTML comments
 * Fri Mar 12 2004 Stuart Gathman <stuart@bmsi.com> 1.1.6-1
 - dspamcgi.py: sort by subject, decode subjects, handle large quarantine
+- dspamcgi.py: handle missing alerts, quarantine
 - Dspam.py: fix hang, unlock in wrong finally
 * Thu Dec 18 2003 Stuart Gathman <stuart@bmsi.com> 1.1.5-1
 - pydspam-1.1.5

@@ -1,5 +1,7 @@
 Here is a history of user visible changes to pydspam:
 
+1.1.7	CGI - user and global configuration
+	handle tags changed to multiline HTML comments
 1.1.6	CGI - sort by subject, decode subject, handle large quarantine
 	CGI - handle missing alerts, quarantine
 	Use mutex to open only 1 dspam context at a time -
