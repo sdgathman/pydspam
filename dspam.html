@@ -24,7 +24,7 @@ ALT="Viewable With Any Browser" BORDER="0"></A>
   Stuart D. Gathman</a><br>
 This web page is written by Stuart D. Gathman<br>and<br>sponsored by
 <a href="http://www.bmsi.com">Business Management Systems, Inc.</a> <br>
-Last updated Aug 01, 2003</h4>
+Last updated Aug 04, 2003</h4>
 
 <a href="#download">Downloads</a>,<a href="#bugs">Bugs</a>,
 <a href="#triage">Header Triage</a>
@@ -97,10 +97,10 @@ regenerate <code>sendmail.cf</code> (instructions are in the comments at the
 top of <code>sendmail.mc</code>).
 <p>
 <img src="python55.gif" align=left alt="A Python">
-The pydspam project is included as the dspam-python sub-package which is built
-from the pydspam source.  If you don't wish to build the python package,
-set the <code>build_python</code> macro to <code>0</code> at the top of the
-RPM spec file in the source RPM.  The dspam-python binary RPM
+The <a name=python>pydspam</a> project is included as the dspam-python
+sub-package which is built from the pydspam source.  If you don't wish to build
+the python package, set the <code>build_python</code> macro to <code>0</code>
+at the top of the RPM spec file in the source RPM.  The dspam-python binary RPM
 provides a <a href="//www.python.org">Python</a> module which wraps the dspam
 core engine (libdspam).  Some of the dspam command line tools are reimplemented
 in Python to illustrate use of the library.  (Installed as documentation by the
@@ -233,17 +233,19 @@ the C Dspam programs).
 <p>
 Release 2.6.2.02-2 fixes space printing loop in dspam_stats.  No unit test yet.
 <p>
-Release 2.6.3-1 tracks vendor release.
+Release 2.6.3-2 now installs CGI script for access to quarantined mail.
+The RPM creates a 'dspam' user which is in the 'mail' group, and the
+CGI script runs as the dspam user.  
 
 <h3> Binary RPMs </h3>
 
   <h4> RedHat 7.2 </h4>
 <menu>
-<li><a href="/linux/rh72/dspam-2.6.3-1.i386.rpm">dspam-2.6.3-1.i386.rpm</a>
+<li><a href="/linux/rh72/dspam-2.6.3-2.i386.rpm">dspam-2.6.3-2.i386.rpm</a>
   RedHat 7.2 binary RPM
-<li><a href="/linux/rh72/dspam-devel-2.6.3-1.i386.rpm">dspam-devel-2.6.3-1.i386.rpm</a>
+<li><a href="/linux/rh72/dspam-devel-2.6.3-2.i386.rpm">dspam-devel-2.6.3-2.i386.rpm</a>
   Development headers and static library
-<li><a href="/linux/rh72/dspam-python-2.6.3-1.i386.rpm">dspam-python-2.6.3-1.i386.rpm</a>
+<li><a href="/linux/rh72/dspam-python-2.6.3-2.i386.rpm">dspam-python-2.6.3-2.i386.rpm</a>
   Python module and utilities
 <li><a href="/linux/rh72/dspam-2.6.2.02-2.i386.rpm">dspam-2.6.2.02-2.i386.rpm</a>
   RedHat 7.2 binary RPM
@@ -261,6 +263,12 @@ Release 2.6.3-1 tracks vendor release.
 
   <h4> RedHat 7.3 </h4>
 <menu>
+<li><a href="/linux/rh73/dspam-2.6.3-1.i386.rpm">dspam-2.6.3-1.i386.rpm</a>
+  RedHat 7.3 binary RPM
+<li><a href="/linux/rh73/dspam-devel-2.6.3-1.i386.rpm">dspam-devel-2.6.3-1.i386.rpm</a>
+  Development headers and static library
+<li><a href="/linux/rh73/dspam-python-2.6.3-1.i386.rpm">dspam-python-2.6.3-1.i386.rpm</a>
+  Python module and utilities
 <li> <a href="/linux/rh73/dspam-2.6.2-3.i386.rpm">dspam-2.6.2-3.i386.rpm</a>
   RedHat 7.3 binary RPM
 <li><a href="/linux/rh73/dspam-devel-2.6.2-3.i386.rpm">dspam-devel-2.6.2-3.i386.rpm</a>
@@ -280,8 +288,12 @@ Release 2.6.3-1 tracks vendor release.
 </menu>
 
 <h3> Source RPMs </h3>
+Source RPMs contain the sources, patches, and spec file to build
+a release of dspam from source.  They can be recompiled to match your
+distribution.  To disable building the <a href="#python">python package</a>,
+install the source RPM and edit the spec file.
 <menu>
-<li> <a href="/linux/rh73/dspam-2.6.3-1.src.rpm">dspam-2.6.3-1.src.rpm</a>
+<li> <a href="/linux/rh73/dspam-2.6.3-2.src.rpm">dspam-2.6.3-2.src.rpm</a>
   Source RPM (tested on RedHat 7.2)
 <li> <a href="/linux/rh73/dspam-2.6.2.02-2.src.rpm">dspam-2.6.2.02-2.src.rpm</a>
   Source RPM (tested on RedHat 7.x)
