@@ -275,8 +275,10 @@ def getAlerts():
 
 def SortSpam():
   order = FORM.getfirst('ORDER',"arrival")
+  max = FORM.getfirst('VIEWMAX',config.get('cgi','viewspam_max'))
   fp = open(USER + '.cfg','w')
   config.set('cgi','sort',order)
+  config.set('cgi','viewspam_max',max)
   config.write(fp)
   fp.close()
   print "Location: %s?COMMAND=VIEW_SPAM\n"%CONFIG['me']
@@ -348,7 +350,8 @@ def ViewSpam():
 <INPUT TYPE=HIDDEN NAME=COMMAND VALUE=SORT_SPAM>
 <INPUT TYPE=HIDDEN NAME=ORDER VALUE="%(sort)s">
 <A HREF="%(me)s">Click Here to Return</A>
-&nbsp;<INPUT TYPE=SUBMIT VALUE="Sort by %(sort)s" NAME=sort_spam>
+&nbsp;<INPUT TYPE=SUBMIT VALUE="Sort by %(sort)s" NAME=sort_spam> showing
+<INPUT TYPE=TEXT NAME=VIEWMAX SIZE=4 VALUE="%(viewspam_max)s"> at a time.
 </FORM>
 <BR>
 <FORM ACTION="%(me)s" METHOD="POST">
