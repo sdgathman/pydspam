@@ -139,7 +139,6 @@ def NotSpam(multi=False):
       error("No Message ID Specified")
   FILE = open(MAILBOX,'r')
   mbox = mailbox.PortableUnixMailbox(FILE)
-  cnt = 0
   remlist = {}
   for msg in mbox:
     mid = messageID(msg)
@@ -171,6 +170,7 @@ def NotSpam(multi=False):
   if multi: return remlist
   DeleteSpam(remlist)
   print "Location: %s?COMMAND=VIEW_SPAM\n" % CONFIG['ME']
+  return None
 
 def ViewOneSpam():
   message_id = FORM.getfirst('MESSAGE_ID',"")
@@ -255,24 +255,22 @@ def getAlerts():
 def ViewSpam():
   alerts = getAlerts()
 
-
   FILE = open(MAILBOX,'r')
   mbox = mailbox.PortableUnixMailbox(FILE)
-  bgcolor = None
   cnt = 0
   headinglist = []
   for msg in mbox:
     cnt += 1
-    alert = False
     for h in msg.headers:
       for al in alerts:
         if h.find(al) > 0:
-          alert = True
+	  alert = True
 	  break
-      if alert: break
-    if alert: bgcolor = "FFFF00"
-    elif bgcolor == "FFFFFF": bgcolor = "BBBBBB";
-    else: bgcolor = "FFFFFF"
+      else:
+        continue
+      break
+    else:
+      alert = False
 
     heading = {}
     heading['From'] = trimString(msg.getheader('From',""),40)
@@ -302,7 +300,7 @@ def ViewSpam():
       'COMMAND': "VIEW_ONE_SPAM"
     }
     heading['url'] = SafeVars(PAIRS)
-    heading['bgcolor'] = bgcolor
+    heading['alert'] = alert
     heading['start'] = msg.unixfrom.split(None,2)[2].strip()
     heading['ME'] = CONFIG['ME']
     status = msg.getheader('X-Dspam-Status','')
@@ -329,7 +327,12 @@ def ViewSpam():
 </TR>
 """ % CONFIG)
   headinglist.sort()
+  bgcolor = None
   for subj,heading in headinglist:
+    if heading['alert']: bgcolor = "FFFF00"
+    elif bgcolor == "FFFFFF": bgcolor = "BBBBBB";
+    else: bgcolor = "FFFFFF"
+    heading['bgcolor'] = bgcolor
     buff.write("""
 <TR>
  <TD BGCOLOR=#%(bgcolor)s><NOBR><FONT SIZE=-1>&nbsp;
@@ -346,6 +349,7 @@ def ViewSpam():
 
   msgcnt = getLastCount()
   if msgcnt:
+    if msgcnt < cnt: msgcnt = cnt
     shown = "%d of %d messages shown." % (cnt,msgcnt)
   else:
     shown = ""
