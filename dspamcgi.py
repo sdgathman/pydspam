@@ -29,18 +29,21 @@ import re
 import smtplib
 import md5
 from email.Header import decode_header
+try: from ConfigParser import SafeConfigParser as ConfigParser
+except: from ConfigParser import ConfigParser
 
 ## Configuration
 #
 CONFIG = {
-  'USERDIR': "/etc/mail/dspam",
-  'ME': "pydspam.cgi",
-  'DOMAIN': "mail.bmsi.com",
-  'DSPAM': "SMTP",	# send false positives via SMTP to ham@DOMAIN
+  'userdir': "/etc/mail/dspam",
+  'me': "pydspam.cgi",
+  'domain': "mail.bmsi.com",
+  'dspam': "SMTP",	# send false positives via SMTP to ham@DOMAIN
 # 'DSPAM': "/usr/local/bin/falsepositive",	# run script for FPs
-  'LARGE_SCALE': 0
+  'large_scale': 'no',
+  'viewspam_max': '500',
+  'sort': 'subject'
 }
-VIEWSPAM_MAX = 500
 #
 ## End Configuration
 
@@ -48,23 +51,40 @@ remote_user=None
 USER=None
 FORM=None
 MAILBOX=None
+VIEWSPAM_MAX = 500
+VIEWSPAM_SORT = True
+config = ConfigParser(CONFIG)
+config.add_section('dspam')
+config.add_section('cgi')
 
 def DoCommand():
-  global remote_user,FORM,MAILBOX,USER,VIEWSPAM_MAX
+  global remote_user,FORM,MAILBOX,USER,VIEWSPAM_MAX,CONFIG,config,VIEWSPAM_SORT
   remote_user = os.environ.get('REMOTE_USER','')
   if remote_user == '':
     error("System Error. I was unable to determine what username you are.")
   FORM = cgi.FieldStorage()
-  userdir = CONFIG['USERDIR']
+  userdir = config.get('dspam','userdir')
+  config.read([os.path.join(userdir,'dspam.cfg')])
 
-  if CONFIG['LARGE_SCALE'] == 0:
+  if not config.getboolean('dspam','large_scale'):
     USER = os.path.join(userdir,remote_user)
   elif len(remote_user) > 1:
     USER = os.path.join(userdir,remote_user[0:1],remote_user[1:1],remote_user)
   else:
     USER = os.path.join(userdir,remote_user,remote_user)
 
+  config.read([USER + '.cfg'])
+  CONFIG = dict(config.items('dspam'))
+
   MAILBOX = USER + ".mbox"
+  VIEWSPAM_MAX = config.getint('cgi','viewspam_max')
+  VIEWSPAM_SORT = config.get('cgi','sort').lower().startswith('sub')
+  
+  # put opposite sort in CONFIG for easy toggle
+  if VIEWSPAM_SORT:
+    CONFIG['sort'] = 'arrival'
+  else:
+    CONFIG['sort'] = 'subject'
 
   command = FORM.getfirst('COMMAND',"")
   if command == "": Welcome()
@@ -74,6 +94,7 @@ def DoCommand():
   elif command == "NOTSPAM": NotSpam()
   elif command == "ADD_ALERT": AddAlert()
   elif command == "DELETE_ALERT": DeleteAlert()
+  elif command == "SORT_SPAM": SortSpam()
   else: error("Invalid Command: %s" % command)
 
 def getLastCount():
@@ -143,9 +164,9 @@ def NotSpam(multi=False):
   for msg in mbox:
     mid = messageID(msg)
     if mid == message_id or not message_id and FORM.getfirst(mid,'') == '':
-      fpcmd = CONFIG['DSPAM']
+      fpcmd = CONFIG['dspam']
       if fpcmd == 'SMTP':
-	domain = CONFIG['DOMAIN']
+	domain = CONFIG['domain']
 	fromaddr = '%s@%s'%(remote_user,domain)
 	toaddrs  = 'ham@%s'%domain
 	server = smtplib.SMTP('localhost')
@@ -161,7 +182,7 @@ def NotSpam(multi=False):
 	server.quit()
       else:
 	PIPE = os.popen("%s -d %s --falsepositive"
-	      % (CONFIG['DSPAM'],remote_user),'w')
+	      % (CONFIG['dspam'],remote_user),'w')
 	writeMsg(msg,PIPE)
 	rc = PIPE.close()
 	if rc: error(rc)
@@ -169,7 +190,7 @@ def NotSpam(multi=False):
   FILE.close()
   if multi: return remlist
   DeleteSpam(remlist)
-  print "Location: %s?COMMAND=VIEW_SPAM\n" % CONFIG['ME']
+  print "Location: %s?COMMAND=VIEW_SPAM\n" % CONFIG['me']
   return None
 
 def ViewOneSpam():
@@ -189,7 +210,7 @@ def ViewOneSpam():
 </FORM>
 <BR>
 <PRE>
-""" % (CONFIG['ME'],message_id)
+""" % (CONFIG['me'],message_id)
   for msg in mbox:
     if messageID(msg) == message_id:
       buff = StringIO.StringIO()
@@ -234,7 +255,7 @@ def DeleteSpam(remlist=None):
     if not buf: break
     FILE.write(buf)
   FILE.close()
-  print "Location: %s?COMMAND=VIEW_SPAM&last_count=%d\n"%(CONFIG['ME'],msgcnt)
+  print "Location: %s?COMMAND=VIEW_SPAM&last_count=%d\n"%(CONFIG['me'],msgcnt)
 
 def trimString(s,maxlen):
   if len(s) <= maxlen:
@@ -252,6 +273,14 @@ def getAlerts():
     alerts = []
   return alerts
 
+def SortSpam():
+  order = FORM.getfirst('ORDER',"arrival")
+  fp = open(USER + '.cfg','w')
+  config.set('cgi','sort',order)
+  config.write(fp)
+  fp.close()
+  print "Location: %s?COMMAND=VIEW_SPAM\n"%CONFIG['me']
+  
 def ViewSpam():
   alerts = getAlerts()
 
@@ -302,7 +331,7 @@ def ViewSpam():
     heading['url'] = SafeVars(PAIRS)
     heading['alert'] = alert
     heading['start'] = msg.unixfrom.split(None,2)[2].strip()
-    heading['ME'] = CONFIG['ME']
+    heading['ME'] = CONFIG['me']
     status = msg.getheader('X-Dspam-Status','')
     if status == '':
       heading['status'] = 'CHECKED'
@@ -314,11 +343,16 @@ def ViewSpam():
 
   buff = StringIO.StringIO()
   buff.write("""
-<FORM ACTION="%(ME)s" METHOD="POST">
-<INPUT TYPE=HIDDEN NAME=COMMAND VALUE=DELETE_SPAM>
 <B>SPAM Blackhole: Email Quarantine</B><BR>
-<A HREF="%(ME)s">Click Here to Return</A><BR>
+<FORM ACTION="%(me)s" METHOD="POST">
+<INPUT TYPE=HIDDEN NAME=COMMAND VALUE=SORT_SPAM>
+<INPUT TYPE=HIDDEN NAME=ORDER VALUE="%(sort)s">
+<A HREF="%(me)s">Click Here to Return</A>
+&nbsp;<INPUT TYPE=SUBMIT VALUE="Sort by %(sort)s" NAME=sort_spam>
+</FORM>
 <BR>
+<FORM ACTION="%(me)s" METHOD="POST">
+<INPUT TYPE=HIDDEN NAME=COMMAND VALUE=DELETE_SPAM>
 <TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
 <TR><TD BGCOLOR=#000000><FONT COLOR=#FFFFFF SIZE=-1><B>&nbsp;DEL&nbsp;</B></FONT>&nbsp;&nbsp;</TD>
     <TD BGCOLOR=#000000><FONT COLOR=#FFFFFF SIZE=-1><B>&nbsp;SENT&nbsp;</B></FONT>&nbsp;&nbsp;</TD>
@@ -326,7 +360,8 @@ def ViewSpam():
     <TD BGCOLOR=#000000><FONT COLOR=#FFFFFF SIZE=-1><B>&nbsp;SUBJECT&nbsp;</B></FONT>&nbsp;&nbsp;</TD>
 </TR>
 """ % CONFIG)
-  headinglist.sort()
+  if VIEWSPAM_SORT:
+    headinglist.sort()
   bgcolor = None
   for subj,heading in headinglist:
     if heading['alert']: bgcolor = "FFFF00"
@@ -416,7 +451,7 @@ def Welcome():
   if f > 0:
     supp = """You have Quarantined Mail
       (<A HREF="%s?COMMAND=VIEW_SPAM&last_count=%d">%d messages</A>)""" % (
-      	CONFIG['ME'],f,f)
+      	CONFIG['me'],f,f)
   else:
     supp = "Your Quarantine is empty (%d messages)" % f
 
@@ -434,18 +469,18 @@ def Welcome():
     message += """<TR><TD>%s&nbsp;&nbsp;</TD><TD>[
       <A HREF="%s?COMMAND=DELETE_ALERT&line=%d">Delete</A>
     ]</TD></TR>\n""" % (
-      cgi.escape(al),CONFIG['ME'],line)
+      cgi.escape(al),CONFIG['me'],line)
     line += 1
 
   message += """
 </TABLE>
-<FORM ACTION="%(ME)s">
+<FORM ACTION="%(me)s">
 <INPUT TYPE=HIDDEN NAME=COMMAND VALUE=ADD_ALERT>
 <INPUT NAME=ALERT> &nbsp;<INPUT TYPE=SUBMIT VALUE="Add Alert">
 </FORM>
 <BR><BR>
 &nbsp;&nbsp;If you have encountered a SPAM that was not caught by DSPAM 
-please forward it to <A HREF="mailto:spam@%(DOMAIN)s">spam@%(DOMAIN)s</A>
+please forward it to <A HREF="mailto:spam@%(domain)s">spam@%(domain)s</A>
 where it will be contextually analyzed by our software and added to your
 statistical calculations.
 """ % CONFIG
