@@ -80,11 +80,12 @@ def DoCommand():
   VIEWSPAM_MAX = config.getint('cgi','viewspam_max')
   VIEWSPAM_SORT = config.get('cgi','sort').lower().startswith('sub')
   
-  # put opposite sort in CONFIG for easy toggle
+  # put opposite sort in CONFIG defaults for easy toggle
   if VIEWSPAM_SORT:
     CONFIG['sort'] = 'arrival'
   else:
     CONFIG['sort'] = 'subject'
+  CONFIG['viewspam_max'] = str(VIEWSPAM_MAX)
 
   command = FORM.getfirst('COMMAND',"")
   if command == "": Welcome()
