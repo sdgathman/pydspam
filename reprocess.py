@@ -1,5 +1,8 @@
 #!/usr/bin/env python2
 # $Log$
+# Revision 2.4  2003/10/22 02:03:17  stuart
+# Add From header for reprocessing failures
+#
 import mailbox
 import sys
 import os
@@ -17,7 +20,7 @@ for fname in sys.argv[1:]:
   dirname,basename = os.path.split(fname)
   user,ext = basename.split('.')
   lockname = os.path.join(dirname,user + '.retry')
-  if ext == 'spam':
+  if ext in ('spam','fp'):
     try:
       os.link(fname,lockname)
       os.unlink(fname)
@@ -29,7 +32,10 @@ for fname in sys.argv[1:]:
 	log('Subject:',msg['subject'])
 	txt = msg.as_string()
 	try:
-	  ds.add_spam(user,txt)
+	  if ext == 'spam':
+	    ds.add_spam(user,txt)
+	  else:
+	    ds.false_positive(user,txt)
 	except Exception,x:
 	  log('FAIL:',x)
 	  f = open(os.path.join(dirname,user + '.fail'),'a')
