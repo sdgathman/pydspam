@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.21.2.1  2003/12/18 16:26:17  stuart
+# Save dspam result.  Pass on exceptions when attempting to quarantine.
+#
 # Revision 2.21  2003/11/16 02:55:54  stuart
 # Split libdspam and pydspam web pages.
 #
@@ -145,7 +148,7 @@ def add_signature_tag(msg,sigkey,prob=None):
 	  done = True
 	  break
     if not done:
-      msg.epilog = "\n<!DSPAM:%s>\n\n" % sigkey
+      msg.epilogue = "\n\n<!DSPAM:%s>\n\n" % sigkey
 
 def extract_signature_tags(txt):
   tags = []
