@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.2  2003/08/30 05:42:53  stuart
+# Feedback methods
+#
 # Revision 2.1  2003/08/30 04:46:57  stuart
 # Begin higher level framework: signature database and quarantine mbox
 #
@@ -32,7 +35,7 @@ def put_signature(sig,sigfile,status):
     key = create_signature_id()
     while db.has_key(key):
       key = create_signature_id()
-    data = struct.pack('l',time.time()) + sig + chr(status)
+    data = struct.pack('l',time.time()) + str(sig) + chr(status)
     db[key] = data
     # add signature key to message
   except:
@@ -61,11 +64,12 @@ def extract_signature_tags(txt):
   while True:
     beg = txt.find('<!DSPAM:',beg)
     if beg < 0: break
-    beg += 9
+    beg += 8
     end = txt.find('>',beg)
     if end > beg and end - beg < 64:
       tags.append(txt[beg:end])
     beg = end + 1
+  return tags
 
 def parse_groups(groupfile):
   "Parse group file, return map from user -> group or none"
@@ -86,9 +90,12 @@ class DSpamDirectory(object):
     self.userdir = userdir
     self.groupfile = os.path.join(userdir,'group')
 
+  def get_group(self,user):
+    return parse_groups(self.groupfile).get(user,user)
+
   def user_files(self,user):
     "Return filenames for dict,sigs,mbox as a tuple."
-    group = parse_groups(self.groupfile).get(user,user)
+    group = self.get_group(user)
     # find names of files
     dspam_userdir = self.userdir
     dspam_dict = os.path.join(dspam_userdir,group+'.dict')
@@ -118,12 +125,10 @@ class DSpamDirectory(object):
 	except: pass
       # if apparently innocent, or quarantine failes, save signature in db
       sigkey = put_signature(ds.signature,sigfile,ds.result)
-      prob = ds.probability
-    finally:
-      ds.unlock()
-      ds.destroy()
+      if not sigkey: return txt
 
       # add signature key to message
+      prob = ds.probability
       fp = StringIO.StringIO(txt)
       msg = mime.MimeMessage(fp)
       del fp
@@ -149,6 +154,10 @@ class DSpamDirectory(object):
 	if not done:
 	  msg.epilog = "\n<!DSPAM:%s>\n\n" % sigkey
       return msg.as_string()
+    finally:
+      ds.unlock()
+      ds.destroy()
+    return txt
 
   def _feedback(self,user,txt,op):
     dspam_dict,sigfile,mbox = self.user_files(user)
@@ -178,10 +187,11 @@ class DSpamDirectory(object):
       txt = '\n'.join(txt.splitlines())+'\n' # convert to unix EOL
       ds = dspam.dspam(dspam_dict,op,opts)
       ds.process(txt)
+    return ds.totals
 
   # report a message as spam
   def add_spam(self,user,txt):
-    self._feedback(user,txt,dspam.DSM_ADDSPAM)
+    return self._feedback(user,txt,dspam.DSM_ADDSPAM)
 
   def false_positive(self,user,txt):
-    self._feedback(user,txt,dspam.DSM_FALSEPOSITIVE)
+    return self._feedback(user,txt,dspam.DSM_FALSEPOSITIVE)
