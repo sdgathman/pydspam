@@ -3,7 +3,12 @@
 
 import sys
 import mailbox
+import time
+import bsddb
+import struct
 from dspam import *
+
+start_time = time.time()
 
 def usage():
   print >>sys.stderr, "Usage:	%s user filename [--addspam]" % sys.argv[0]
@@ -16,6 +21,24 @@ def msgAsString(msg):
   msg.rewindbody()
   lines.append(msg.fp.read())
   return ''.join(lines)
+
+def addCorpus(db,buf,mode):
+  hdr,body = buf.split('\n\n',1)
+  try: ts,ti,tm,fp = struct.unpack('llll',db['_TOTALS'])
+  except KeyError: ts,ti,tm,fp = 0,0,0,0
+  for crc in tokenize(hdr,body).keys():
+    key = struct.pack('Q',crc)
+    try:
+      spam_hits,innocent_hits,last_hit = struct.unpack('lll',db[key])
+    except KeyError:
+      spam_hits,innocent_hits = 0,0
+    if mode == DSM_ADDSPAM: spam_hits += 1
+    else: innocent_hits += 1
+    db[key] = struct.pack('lll',spam_hits,innocent_hits,start_time)
+  if mode == DSM_ADDSPAM: ts += 1
+  else: ti += 1
+  db['_TOTALS'] = struct.pack('llll',ts,ti,tm,fp)
+  return (ts,ti,tm,fp)
 
 if len(sys.argv) < 3: usage()
 user = sys.argv[1]
@@ -33,20 +56,16 @@ if user.find('/') >= 0:
 else:
   dict = "/var/lib/dspam/%s.dict" % user
 
-if mode == DSM_PROCESS: exp_res = DSR_ISINNOCENT
-else: exp_res = DSR_ISSPAM
-
 f = open(file,"r")
 mbox = mailbox.PortableUnixMailbox(f)
-ds = dspam(dict,mode,DSF_CORPUS|DSF_CHAINED|DSF_NOLOCK)
-ds.lock()
+file_lock(dict)
+db = bsddb.btopen(dict,'c')
 try:
   for msg in iter(mbox.next,None):
     print msg.unixfrom.strip()
     data = msgAsString(msg)
-    ds.process(data)
-    assert ds.result == exp_res
-  totals = ds.totals
+    totals = addCorpus(db,data,mode)
 finally:
-  ds.unlock()
+  db.close()
+  file_unlock(dict)
 print "TS=%d TI=%d TM=%d FP=%d" % totals
