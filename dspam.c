@@ -25,6 +25,9 @@
 
 /* 
  * $Log$
+ * Revision 2.12  2003/09/06 04:20:54  stuart
+ * ctx->message is an INOUT parameter, so destroy after dspam_process
+ *
  * Revision 2.11  2003/09/03 04:27:29  stuart
  * incorrect free
  *
@@ -60,7 +63,7 @@
 #include <pthread.h>
 #include <Python.h>
 #include <structmember.h>
-#include "../libdspam.h"
+#include <libdspam.h>
 
 /* These functions are not exported, but are necessary to replicate
  * the functionality of dspam. */

@@ -17,7 +17,7 @@ URL: http://www.bmsi.com/python/dspam.html
 Group: Development/Libraries
 Source: http://bmsi.com/python/pydspam-1.1.5.tar.gz
 Buildroot: /var/tmp/pydspam-root
-BuildRequires: %{python}-devel dspam == 2.6.5.2
+BuildRequires: %{python}-devel dspam-devel == 2.6.5.2
 Obsoletes: dspam-python
 
 %description
@@ -74,6 +74,7 @@ cd %{htmldir}/dspam
 exec /usr/sbin/suexec dspam dspam dspamcgi.py
 EOF
 %endif
+cp -p dspamcgi.py $HTMLDIR/dspam
 chmod 0755 $HTMLDIR/dspam/dspamcgi.py $CGIDIR/pydspam.cgi
 
 # install python module
@@ -85,6 +86,7 @@ while read file; do
 done <INSTALLED_FILES
 
 # install python utilities
+mkdir -p $RPM_BUILD_ROOT/usr/local/bin
 cp -p dspam_anal.py $RPM_BUILD_ROOT/usr/local/bin/pydspam_anal
 cp -p dspam_corpus.py $RPM_BUILD_ROOT/usr/local/bin/pydspam_corpus
 cp -p reprocess.py $RPM_BUILD_ROOT/usr/local/bin/pydspam_process

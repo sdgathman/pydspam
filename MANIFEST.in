@@ -9,6 +9,7 @@ include dspam_anal.py
 include dspam_dump.py
 include dspam_purge.py
 include reprocess.py
+include dspamcgi.py
 include dspam.html
 include dspam.c
 include test/*
