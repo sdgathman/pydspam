@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.1  2003/08/30 04:46:57  stuart
+# Begin higher level framework: signature database and quarantine mbox
+#
 #
 
 import os
@@ -53,7 +56,16 @@ def add_signature_tag(msg,sigkey):
     encode_base64(msg)
 
 def extract_signature_tags(txt):
-  pass
+  tags = []
+  beg = 0
+  while True:
+    beg = txt.find('<!DSPAM:',beg)
+    if beg < 0: break
+    beg += 9
+    end = txt.find('>',beg)
+    if end > beg and end - beg < 64:
+      tags.append(txt[beg:end])
+    beg = end + 1
 
 def parse_groups(groupfile):
   "Parse group file, return map from user -> group or none"
@@ -74,16 +86,21 @@ class DSpamDirectory(object):
     self.userdir = userdir
     self.groupfile = os.path.join(userdir,'group')
 
-# check spaminess for a message
-  def check_spam(self,user,txt):
-    "Return tagged message, or None if message was quarantined."
+  def user_files(self,user):
+    "Return filenames for dict,sigs,mbox as a tuple."
     group = parse_groups(self.groupfile).get(user,user)
-
     # find names of files
     dspam_userdir = self.userdir
     dspam_dict = os.path.join(dspam_userdir,group+'.dict')
     sigfile = os.path.join(dspam_userdir,user+'.sig')
     mbox = os.path.join(dspam_userdir,user+'.mbox')
+    return (dspam_dict,sigfile,mbox)
+
+# check spaminess for a message
+  def check_spam(self,user,txt):
+    "Return tagged message, or None if message was quarantined."
+
+    dspam_dict,sigfile,mbox = self.user_files(user)
 
     opts = dspam.DSF_CHAINED|dspam.DSF_SIGNATURE|dspam.DSF_NOLOCK
     ds = dspam.dspam(dspam_dict,dspam.DSM_PROCESS,opts)
@@ -133,9 +150,38 @@ class DSpamDirectory(object):
 	  msg.epilog = "\n<!DSPAM:%s>\n\n" % sigkey
       return msg.as_string()
 
+  def _feedback(self,user,txt,op):
+    dspam_dict,sigfile,mbox = self.user_files(user)
+    opts = dspam.DSF_CHAINED|dspam.DSF_SIGNATURE|dspam.DSF_NOLOCK
+    done = False
+    ds = dspam.dspam(dspam_dict,op,opts)
+    ds.lock()
+    try:
+      db = bsddb.btopen(sigfile,'c')
+      try:
+	tags = extract_signature_tags(txt)
+	for tag in tags:
+	  if db.has_key(tag):
+	    data = db[tag]
+	    sig = data[4:]	# discard timestamp
+	    rem = len(sig) % 8
+	    if rem > 0: sig = sig[:-rem]	# discard status
+	    ds.process(sig)	# reverse stats
+	    del db[tag]
+	    done = True
+      finally:
+	db.close()
+    finally:
+      ds.unlock()
+    if not done:	# no tags in sig database, use full text
+      opts = dspam.DSF_CHAINED|dspam.DSF_SIGNATURE|dspam.DSF_IGNOREHEADER
+      txt = '\n'.join(txt.splitlines())+'\n' # convert to unix EOL
+      ds = dspam.dspam(dspam_dict,op,opts)
+      ds.process(txt)
+
   # report a message as spam
   def add_spam(self,user,txt):
-    pass
+    self._feedback(user,txt,dspam.DSM_ADDSPAM)
 
   def false_positive(self,user,txt):
-    pass
+    self._feedback(user,txt,dspam.DSM_FALSEPOSITIVE)
