@@ -51,10 +51,18 @@ def load_stat(db,crc,totals):
     probability = 0.9990
   return probability,spam_hits,innocent_hits
 
-def analyzeMessage(ds,fp):
+def analyzeMessage(ds,fp,headeronly=0,maxstat=15):
   msg = fp.read()
   fp.close()
-  ds.process(msg)
+  if headeronly:
+    hdr,body = msg.split('\n\n',1)
+    del msg
+    body = ' '
+    ds.process(hdr + '\n\n')
+  else:
+    ds.process(msg)
+    hdr,body = msg.split('\n\n',1)
+    del msg
   sig = ds.signature
   totals = ds.totals
   totprob = ds.probability
@@ -62,36 +70,36 @@ def analyzeMessage(ds,fp):
   bay_bot = 0.0 # (1-A)(1-B)
   print "TS: %d TI: %d TM: %d FP: %d" % totals
   print "DSPAM spam probability = %f" % totprob
-  hdr,body = msg.split('\n\n',1)
-  del msg
   tok = dspam.tokenize(hdr,body)
   sig = struct.unpack('Q'*(len(sig)/8),sig)
   db = bsddb.btopen(dict,'r')
   try:
     print "%8s %8s %8s %4s %s" % (
       "spamhits","innocent","prob","freq","token")
-    i = 0
     for crc in sig:
       prob,spam_hits,innocent_hits = load_stat(db,crc,totals)
+      try: token,freq = tok[crc]
+      except KeyError: token,freq = '???',-1
 
-      if i < 15:
-        ++i
+      if maxstat > 0:
+        maxstat -= 1
 	if bay_top == 0.0: bay_top = prob
 	else: bay_top *= prob
 	if bay_bot == 0.0: bay_bot = 1-prob
 	else: bay_bot *= (1-prob)
+        print "%8d %8d %8f %4d %8f %s" % (
+	  spam_hits,innocent_hits,prob,freq,bay_top / (bay_bot + bay_top),token)
+      else:
+        print "%8d %8d %8f %4d %s" % (
+	  spam_hits,innocent_hits,prob,freq,token)
 
-      try: token,freq = tok[crc]
-      except KeyError: token,freq = '???',-1
-      print "%8d %8d %8f %4d %s" % (
-	spam_hits,innocent_hits,prob,freq,token)
     probability = bay_top / (bay_top + bay_bot);
     print "Calculated probability = %f" % probability
   finally:
     db.close()
 
 if len(sys.argv) < 2:
-  print >>sys.stderr,'syntax: dspam_anal user|dict [message ...]'
+  print >>sys.stderr,'syntax: dspam_anal user|dict [-h] [message ...]'
   sys.exit(2)
 
 user = sys.argv[1]
@@ -108,8 +116,10 @@ try:
   if len(sys.argv) == 2:
     analyzeMessage(ds,sys.stdin)
   else:
+    headeronly = 0
     for fname in sys.argv[2:]:
-      analyzeMessage(ds,open(fname,'r'))
+      if fname == '-h': headeronly = 1
+      else: analyzeMessage(ds,open(fname,'r'),headeronly)
 finally:
   ds.unlock()
   ds.destroy()
