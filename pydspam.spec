@@ -15,7 +15,7 @@ Release: 1
 Copyright: GPL
 URL: http://www.bmsi.com/python/dspam.html
 Group: Development/Libraries
-Source: http://bmsi.com/python/pydspam-1.1.5.tar.gz
+Source: http://bmsi.com/python/%{name}-%{version}.tar.gz
 Buildroot: /var/tmp/pydspam-root
 Requires: dspam == 2.6.5.2
 BuildRequires: %{python}-devel dspam-devel == 2.6.5.2

@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python2.3
 import sys
 import bsddb
 import dspam

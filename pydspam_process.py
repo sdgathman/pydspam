@@ -1,5 +1,8 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python2.3
 # $Log$
+# Revision 2.6.4.1  2004/01/14 21:09:32  stuart
+# Postphone reprocessing if lock file is busy.
+#
 # Revision 2.6  2003/11/03 21:12:13  stuart
 # Test null bytes in messages.
 # Test "Lock failed" exception
