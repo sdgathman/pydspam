@@ -14,3 +14,4 @@ include dspam.html
 include dspam.c
 include test/*
 include Notes*
+include NEWS
