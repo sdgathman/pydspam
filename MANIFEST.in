@@ -11,6 +11,7 @@ include dspam_purge.py
 include pydspam_process.py
 include dspamcgi.py
 include dspam.html
+include dspam.cfg
 include dspam.c
 include test/*
 include Notes*

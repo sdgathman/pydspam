@@ -10,7 +10,7 @@
 
 Summary: A Python wrapper for Dspam Bayesian spam filtering
 Name: pydspam
-Version: 1.1.6
+Version: 1.1.7
 Release: 1
 Copyright: GPL
 URL: http://www.bmsi.com/python/dspam.html
@@ -54,6 +54,10 @@ exec >>reprocess.log 2>&1
 /usr/local/sbin/pydspam_process.py *.spam *.fp
 EOF
 chmod a+x $ETCDIR/cron.hourly/dspam
+
+# provide sample dspam.cfg
+mkdir -p $ETCDIR/mail/dspam
+cp -p dspam.cfg $ETCDIR/mail/dspam
 
 # install CGI script
 CGIDIR="$RPM_BUILD_ROOT%{cgibin}"
@@ -100,15 +104,19 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root)
 %doc NEWS dspam.html dspam_dump.py Notes*
 /etc/cron.hourly/dspam
+%config /etc/mail/dspam/dspam.cfg
 %attr(0775,root,root)/usr/local/bin/*
 %attr(0775,root,root)/usr/local/sbin/*
 %attr(0755,dspam,dspam)%{htmldir}/dspam/dspamcgi.py
 %{cgibin}/pydspam.cgi
 
 %changelog
+* Thu Apr 08 2004 Stuart Gathman <stuart@bmsi.com> 1.1.7-1
+- dspamcgi.py: user and global configuration
+- Dspam.py: handle tags changed to multiline HTML comments
 * Fri Mar 12 2004 Stuart Gathman <stuart@bmsi.com> 1.1.6-1
 - dspamcgi.py: sort by subject, decode subjects, handle large quarantine
-- Dspam.py: 
+- Dspam.py: fix hang, unlock in wrong finally
 * Thu Dec 18 2003 Stuart Gathman <stuart@bmsi.com> 1.1.5-1
 - pydspam-1.1.5
 - Move dspam-python to its own package
