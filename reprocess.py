@@ -1,5 +1,9 @@
 #!/usr/bin/env python2
 # $Log$
+# Revision 2.6  2003/11/03 21:12:13  stuart
+# Test null bytes in messages.
+# Test "Lock failed" exception
+#
 # Revision 2.5  2003/10/22 21:47:32  stuart
 # Reprocess false positives also.
 #
@@ -15,6 +19,7 @@ import time
 import Dspam
 
 def log(*msg):
+  print time.strftime('%Y%b%d %H:%M:%S'),
   for i in msg: print i,
   print
 
@@ -23,7 +28,11 @@ for fname in sys.argv[1:]:
   dirname,basename = os.path.split(fname)
   user,ext = basename.split('.')
   lockname = os.path.join(dirname,user + '.retry')
+  dlockname = os.path.join(dirname,user + '.lock')
   if ext in ('spam','fp'):
+    if os.path.exists(dlockname):
+      log('Busy, finish later.')
+      break
     try:
       os.link(fname,lockname)
       os.unlink(fname)
