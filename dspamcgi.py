@@ -17,8 +17,6 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
-# $Log$
-
 from time import ctime
 import sys
 import StringIO
@@ -28,16 +26,19 @@ import cgi
 import cgitb; cgitb.enable()
 import mailbox
 import re
+import smtplib
 
 ## Configuration
 #
 CONFIG = {
   'USERDIR': "/etc/mail/dspam",
   'ME': "dspam.cgi",
-  'DOMAIN': "mail.bmsi.com",
-  'DSPAM': "/usr/local/bin/falsepositive",
+  'DOMAIN': "mydomain.com",
+# 'DSPAM': "SMTP",	# send false positives via SMTP to ham@DOMAIN
+  'DSPAM': "/usr/local/bin/falsepositive",	# run script for FPs
   'LARGE_SCALE': 0
 }
+VIEWSPAM_MAX = 20
 #
 ## End Configuration
 
@@ -125,11 +126,27 @@ def NotSpam():
   mbox = mailbox.PortableUnixMailbox(FILE)
   for msg in mbox:
     if messageID(msg) == message_id:
-      PIPE = os.popen("%s -d %s --falsepositive"
-	    % (CONFIG['DSPAM'],remote_user),'w')
-      writeMsg(msg,PIPE)
-      rc = PIPE.close()
-      if rc: error(rc)
+      fpcmd = CONFIG['DSPAM']
+      if fpcmd == 'SMTP':
+	domain = CONFIG['DOMAIN']
+	fromaddr = '%s@%s'%(remote_user,domain)
+	toaddrs  = 'ham@%s'%domain
+	server = smtplib.SMTP('localhost')
+	#server.set_debuglevel(1)
+	buff = StringIO.StringIO()
+	writeMsg(msg,buff)
+	try:
+	  server.sendmail(fromaddr, toaddrs, buff.getvalue())
+	except smtplib.SMTPResponseException,x:
+          #error('%d: %s'%(x.smtp_code,x.smtp_error))
+          error(x)
+	server.quit()
+      else:
+	PIPE = os.popen("%s -d %s --falsepositive"
+	      % (CONFIG['DSPAM'],remote_user),'w')
+	writeMsg(msg,PIPE)
+	rc = PIPE.close()
+	if rc: error(rc)
       break
   FILE.close()
   DeleteSpam([message_id])
@@ -168,19 +185,22 @@ def DeleteSpam(remlist=None):
   FILE = open(MAILBOX,'r')
   mbox = mailbox.PortableUnixMailbox(FILE)
   buff = StringIO.StringIO()
+  cnt = 0
   for msg in mbox:
+    cnt += 1
     message_id = messageID(msg)
-    #print >>sys.stderr,repr(message_id)
-    #print >>sys.stderr,FORM.getvalue(message_id,"")
+    # Mark message saved in case user saves it
     if remlist:
       if not message_id in remlist:
         writeMsg(msg,buff)
-    elif FORM.getfirst(message_id,"") == "":
+    elif FORM.getfirst(message_id,'') == '':
+      if cnt < VIEWSPAM_MAX:
+        msg['X-Dspam-Status'] = 'Keep' 
       writeMsg(msg,buff)
-  #print >>sys.stderr,FORM
   FILE.close()
   FILE = open(MAILBOX,'w')
   FILE.write(buff.getvalue())
+  FILE.close()
   print "Location: %s?COMMAND=VIEW_SPAM\n" % CONFIG['ME']
 
 def trimString(s,maxlen):
@@ -220,8 +240,10 @@ def ViewSpam():
   FILE = open(MAILBOX,'r')
   mbox = mailbox.PortableUnixMailbox(FILE)
   bgcolor = None
+  cnt = 0
   for msg in mbox:
-    #my(%heading, $start, $alert);
+    cnt += 1
+    if cnt > VIEWSPAM_MAX: break
     alert = False
     for h in msg.headers:
       for al in alerts:
@@ -253,11 +275,16 @@ def ViewSpam():
     heading['bgcolor'] = bgcolor
     heading['start'] = msg.unixfrom.split(None,2)[2].strip()
     heading['ME'] = CONFIG['ME']
+    status = msg.getheader('X-Dspam-Status','')
+    if status == '':
+      heading['status'] = 'CHECKED'
+    else:
+      heading['status'] = ''
 
     buff.write("""
 <TR>
  <TD BGCOLOR=#%(bgcolor)s><NOBR><FONT SIZE=-1>&nbsp;
-   <INPUT TYPE=CHECKBOX CHECKED NAME="%(Message-ID)s">&nbsp;</B></FONT>
+   <INPUT TYPE=CHECKBOX %(status)s NAME="%(Message-ID)s">&nbsp;</B></FONT>
    &nbsp;&nbsp;</TD>
  <TD BGCOLOR=#%(bgcolor)s><NOBR><FONT SIZE=-1>&nbsp;%(start)s&nbsp;</B></FONT>
    &nbsp;&nbsp;</TD>
@@ -280,12 +307,10 @@ def CountMsgs(fname):
   "Quickly count messages in quarantine."  
   # If memory use is a problem for huge quarantines, loop over an mbox
   # instead.
-  try:
-    FILE = open(fname,'r')
-    s = FILE.read()
-    FILE.close()
-    if s: return len(s.split('\nFrom '))
-  except IOError: pass
+  FILE = open(fname,'r')
+  s = FILE.read()
+  FILE.close()
+  if s: return len(s.split('\nFrom '))
   return 0
 
 def Welcome():
