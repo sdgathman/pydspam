@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.21.2.4  2004/03/29 21:25:01  stuart
+# Releasing _seq_lock in wrong finally
+#
 # Revision 2.21.2.3  2004/01/27 03:46:55  stuart
 # dspam locking doesn't work right with multiple locks held in same process,
 # so wrap dspam operations in mutex.
@@ -160,14 +163,21 @@ def extract_signature_tags(txt):
   tags = []
   beg = 0
   while True:
-    beg = txt.find('<!DSPAM:',beg)
-    if beg < 0: break
-    beg += 8
-    end = txt.find('>',beg)
+    nbeg = txt.find('<!DSPAM:',beg)
+    if nbeg < 0:
+      nbeg = txt.find('<!--DSPAM:',beg)
+      if nbeg < 0: break
+      offset = 10
+      endpat = '-->'
+    else:
+      offset = 8
+      endpat = '>'
+    beg = nbeg + offset
+    end = txt.find(endpat,beg)
     if end > beg and end - beg < 64:
       tags.append(txt[beg:end])
-      beg -= 8
-      txt = txt[:beg] + txt[end+1:]
+      beg -= offset
+      txt = txt[:beg] + txt[end+len(endpat):]
   return (txt,tags)
 
 def parse_groups(groupfile,dups=False):
