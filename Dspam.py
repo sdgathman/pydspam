@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.21  2003/11/16 02:55:54  stuart
+# Split libdspam and pydspam web pages.
+#
 # Revision 2.20  2003/11/09 00:30:36  stuart
 # Queue large messages for delayed processing.
 #
@@ -78,6 +81,8 @@ import mime
 import StringIO
 
 from email.Encoders import encode_base64, encode_quopri
+
+VERSION = "1.1.5"
 
 _seq = 0
 
@@ -185,6 +190,7 @@ class DSpamDirectory(object):
     self.userdir = userdir
     self.groupfile = os.path.join(userdir,'group')
     self.log = self._log
+    self.headerchange = None
 
   def get_group(self,user):
     return parse_groups(self.groupfile).get(user,user)
@@ -201,7 +207,8 @@ class DSpamDirectory(object):
     return (self.dspam_dict,self.sigfile,self.mbox)
 
 # check spaminess for a message
-  def check_spam(self,user,txt,recipients = None,classify=False):
+  def check_spam(self,user,txt,recipients = None,
+  	classify=False,quarantine=True):
     "Return tagged message, or None if message was quarantined."
 
     dspam_dict,sigfile,mbox = self.user_files(user)
@@ -218,12 +225,12 @@ class DSpamDirectory(object):
 	ds.process(txt)
 	self.totals = ds.totals
 	self.probability = ds.probability
-	try: print >>open(self.dspam_stats,'w'),"%d,%d,%d,%d" % ds.totals
-	except: pass
+	self.result = ds.result
 
 	sig = ds.signature
 	if classify:
-	  if ds.result == dspam.DSR_ISINNOCENT: return txt
+	  if self.result == dspam.DSR_ISINNOCENT: return txt
+	  if not quarantine: return None
 	  opts &= ~dspam.DSF_CLASSIFY
 	  ds = dspam.dspam(dspam_dict,dspam.DSM_PROCESS,opts)
 	  ds.process(txt) # result should be same since dict is locked
@@ -232,16 +239,22 @@ class DSpamDirectory(object):
 	    sig = ds.signature
 	    ds = dspam.dspam(dspam_dict,dspam.DSM_ADDSPAM,opts)
 	    ds.process(sig) # force back to SPAM
-	sigkey = put_signature(sig,sigfile,ds.result)
-	if not sigkey: return txt
+	self.totals = ds.totals
+	try: print >>open(self.dspam_stats,'w'),"%d,%d,%d,%d" % ds.totals
+	except: pass
+	sigkey = put_signature(sig,sigfile,self.result)
+	if not sigkey:
+	  self.log("WARN: tag generation failed")
+	  return txt
 
 	try:
 	  # add signature key to message
 	  msg = mime.MimeMessage(StringIO.StringIO(txt))
-	  add_signature_tag(msg,sigkey,ds.probability)
+	  msg.headerchange = self.headerchange
+	  add_signature_tag(msg,sigkey,self.probability)
 
 	  # quarantine mail if dspam thinks it looks spammy
-	  if ds.result == dspam.DSR_ISSPAM:
+	  if self.result == dspam.DSR_ISSPAM:
 	    del msg['X-Dspam-Recipients']
 	    if recipients:
 	      msg['X-Dspam-Recipients'] = ', '.join(recipients)
@@ -253,7 +266,8 @@ class DSpamDirectory(object):
 	    fp.close()
 	    return None
 	  txt = msg.as_string()
-	except: pass
+	except:
+	  if self.result == dspam.DSR_ISSPAM: raise
 
       finally:
 	dspam.file_unlock(dspam_dict)
