@@ -25,6 +25,9 @@
 
 /* 
  * $Log$
+ * Revision 2.11  2003/09/03 04:27:29  stuart
+ * incorrect free
+ *
  * Revision 2.10  2003/09/03 04:15:51  stuart
  * No more copyback in dspam-2.6.5
  *
@@ -146,6 +149,13 @@ _dspam_process(PyObject *dspamobj, PyObject *args) {
 	  &ctx->signature->data,&ctx->signature->length)) return NULL;
   }
   rc = dspam_process(ctx,message);
+
+  /* We don't need ctx->message, and it overrides the text message
+   * if left in the context.  So destroy it now. */
+  if (ctx->message) {
+    _ds_destroy_message(ctx->message);
+    ctx->message = 0;
+  }
 
   /* Retrieve output fields.  It looks like caller is responsible
    * to free signature */
