@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.12  2003/10/16 02:18:03  stuart
+# Support for queueing addspams which get a lock timeout.
+#
 # Revision 2.11  2003/09/30 21:06:52  stuart
 # Use umask to create files with proper permissions.
 #
@@ -66,7 +69,6 @@ def put_signature(sig,sigfile,status):
       key = create_signature_id()
     data = struct.pack('l',time.time()) + str(sig) + chr(status)
     db[key] = data
-    # add signature key to message
   except:
     key = None
   db.close()
@@ -87,7 +89,7 @@ def _tag_part(msg,sigkey):
   msg.set_payload(txt + tag)
   if recode:
     del msg["content-transfer-encoding"]
-    encode_base64(msg)
+    encode_quopri(msg)
 
 def add_signature_tag(msg,sigkey,prob=None):
   # add signature key to message

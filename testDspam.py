@@ -54,16 +54,10 @@ class pyDSpamTestCase(unittest.TestCase):
   def testProcess(self):
     ds = self.ds
     msgs = []
-    txt = open('test/samp1').read()	# innocent mail
-    msgs.append(ds.check_spam('tonto',txt))
-    txt = open('test/spam7').read()	# spam mail
-    msgs.append(ds.check_spam('tonto',txt))
-    txt = open('test/spam8').read()	# spam mail
-    msgs.append(ds.check_spam('tonto',txt))
-    txt = open('test/spam44').read()	# spam mail
-    msgs.append(ds.check_spam('tonto',txt))
-    txt = open('test/test8').read()	# spam mail
-    msgs.append(ds.check_spam('tonto',txt))
+    # check that all kinds of messages get properly tagged
+    for fname in ('samp1','spam1','spam7','spam8','spam44','test8'):
+      txt = open(os.path.join('test',fname)).read()
+      msgs.append(ds.check_spam('tonto',txt))
 
     # check that sigs are all present
     db = bsddb.btopen(ds.user_files('tonto')[1],'r')
@@ -73,11 +67,11 @@ class pyDSpamTestCase(unittest.TestCase):
       self.failUnless(db.has_key(tag[0]))
     db.close()
 
-    spams = msgs[1:4]
+    spams = msgs[1:5]
     for txt in spams:
       ds.add_spam('tonto',txt)		# feedback spam
       tot = ds.totals
-    self.failUnless(tot == (3,2,3,0))
+    self.failUnless(tot == (4,2,4,0))
 
     # check that sigs were deleted
     dspam_dict,sigfile,mbox = ds.user_files('tonto')
