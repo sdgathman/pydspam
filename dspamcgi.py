@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python2.3
 
 # DSPAM
 # COPYRIGHT (C) 2003 NETWORK DWEEBS CORPORATION
@@ -28,6 +28,7 @@ import mailbox
 import re
 import smtplib
 import md5
+from email.Header import decode_header
 
 ## Configuration
 #
@@ -39,7 +40,7 @@ CONFIG = {
 # 'DSPAM': "/usr/local/bin/falsepositive",	# run script for FPs
   'LARGE_SCALE': 0
 }
-VIEWSPAM_MAX = 200
+VIEWSPAM_MAX = 500
 #
 ## End Configuration
 
@@ -226,8 +227,12 @@ def DeleteSpam(remlist=None):
       writeMsg(msg,buff)
       msgcnt += 1
   FILE.close()
+  buff.seek(0)
   FILE = open(MAILBOX,'w')
-  FILE.write(buff.getvalue())
+  while True:
+    buf = buff.read(8*1024*1024)
+    if not buf: break
+    FILE.write(buf)
   FILE.close()
   print "Location: %s?COMMAND=VIEW_SPAM&last_count=%d\n"%(CONFIG['ME'],msgcnt)
 
@@ -250,25 +255,12 @@ def getAlerts():
 def ViewSpam():
   alerts = getAlerts()
 
-  buff = StringIO.StringIO()
-  buff.write("""
-<FORM ACTION="%(ME)s" METHOD="POST">
-<INPUT TYPE=HIDDEN NAME=COMMAND VALUE=DELETE_SPAM>
-<B>SPAM Blackhole: Email Quarantine</B><BR>
-<A HREF="%(ME)s">Click Here to Return</A><BR>
-<BR>
-<TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
-<TR><TD BGCOLOR=#000000><FONT COLOR=#FFFFFF SIZE=-1><B>&nbsp;DEL&nbsp;</B></FONT>&nbsp;&nbsp;</TD>
-    <TD BGCOLOR=#000000><FONT COLOR=#FFFFFF SIZE=-1><B>&nbsp;SENT&nbsp;</B></FONT>&nbsp;&nbsp;</TD>
-    <TD BGCOLOR=#000000><FONT COLOR=#FFFFFF SIZE=-1><B>&nbsp;FROM&nbsp;</B></FONT>&nbsp;&nbsp;</TD>
-    <TD BGCOLOR=#000000><FONT COLOR=#FFFFFF SIZE=-1><B>&nbsp;SUBJECT&nbsp;</B></FONT>&nbsp;&nbsp;</TD>
-</TR>
-""" % CONFIG)
 
   FILE = open(MAILBOX,'r')
   mbox = mailbox.PortableUnixMailbox(FILE)
   bgcolor = None
   cnt = 0
+  headinglist = []
   for msg in mbox:
     cnt += 1
     alert = False
@@ -283,11 +275,22 @@ def ViewSpam():
     else: bgcolor = "FFFFFF"
 
     heading = {}
-    heading['Subject'] = trimString(msg.getheader('Subject',""),40)
     heading['From'] = trimString(msg.getheader('From',""),40)
-    if heading['Subject'] == "":
-      heading['Subject'] = "<None Specified>"
-
+    subj = msg.getheader('Subject',"")
+    if subj == "":
+      subj = "<None Specified>"
+    else:
+      h = decode_header(subj)
+      if len(h) == 1 and h[0][1]:
+	try:
+          p = h[0]
+	  u = unicode(p[0],p[1])
+	  subj = u.encode('us-ascii')
+	except LookupError:
+	  pass
+        except UnicodeError:
+	  subj = u.encode('utf8')
+    heading['Subject'] = trimString(subj,40)
     heading['Message-ID'] = messageID(msg)
 
     for key in heading.keys():
@@ -308,6 +311,25 @@ def ViewSpam():
     else:
       heading['status'] = ''
 
+    headinglist.append((heading['Subject'],heading))
+    if cnt >= VIEWSPAM_MAX: break
+
+  buff = StringIO.StringIO()
+  buff.write("""
+<FORM ACTION="%(ME)s" METHOD="POST">
+<INPUT TYPE=HIDDEN NAME=COMMAND VALUE=DELETE_SPAM>
+<B>SPAM Blackhole: Email Quarantine</B><BR>
+<A HREF="%(ME)s">Click Here to Return</A><BR>
+<BR>
+<TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
+<TR><TD BGCOLOR=#000000><FONT COLOR=#FFFFFF SIZE=-1><B>&nbsp;DEL&nbsp;</B></FONT>&nbsp;&nbsp;</TD>
+    <TD BGCOLOR=#000000><FONT COLOR=#FFFFFF SIZE=-1><B>&nbsp;SENT&nbsp;</B></FONT>&nbsp;&nbsp;</TD>
+    <TD BGCOLOR=#000000><FONT COLOR=#FFFFFF SIZE=-1><B>&nbsp;FROM&nbsp;</B></FONT>&nbsp;&nbsp;</TD>
+    <TD BGCOLOR=#000000><FONT COLOR=#FFFFFF SIZE=-1><B>&nbsp;SUBJECT&nbsp;</B></FONT>&nbsp;&nbsp;</TD>
+</TR>
+""" % CONFIG)
+  headinglist.sort()
+  for subj,heading in headinglist:
     buff.write("""
 <TR>
  <TD BGCOLOR=#%(bgcolor)s><NOBR><FONT SIZE=-1>&nbsp;
@@ -321,7 +343,6 @@ def ViewSpam():
    </FONT>&nbsp;&nbsp;</TD>
 </TR>
 """ % heading)
-    if cnt >= VIEWSPAM_MAX: break
 
   msgcnt = getLastCount()
   if msgcnt:
@@ -344,10 +365,12 @@ def CountMsgs(fname):
   # If memory use is a problem for huge quarantines, loop over an mbox
   # instead.
   FILE = open(fname,'r')
-  s = FILE.read()
+  cnt = 0
+  for ln in FILE:
+    if ln.startswith('From '):
+	cnt += 1
   FILE.close()
-  if s: return len(s.split('\nFrom '))
-  return 0
+  return cnt
 
 def Welcome():
 
