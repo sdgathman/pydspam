@@ -27,6 +27,7 @@ import cgitb; cgitb.enable()
 import mailbox
 import re
 import smtplib
+import md5
 
 ## Configuration
 #
@@ -115,7 +116,10 @@ def messageID(msg):
   "Extract an ID suitable for selecting messages from a mailbox."
   message_id = msg.getheader('Message-ID',"")
   if message_id == "":
-    message_id = msg.getheader('Subject',"")
+    m = md5.new()
+    for h in msg.headers:
+      m.update(h)
+    return m.hexdigest()
   return message_id.replace('"','').replace("'","").replace('\n','')
 
 def NotSpam():
