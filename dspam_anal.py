@@ -1,5 +1,4 @@
 #!/usr/bin/env python2
-
 import sys
 import bsddb
 import dspam

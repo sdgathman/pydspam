@@ -1,5 +1,9 @@
 #
 # $Log$
+# Revision 2.14  2003/10/16 22:21:15  stuart
+# Code and test innoculations.  When a message is reported as spam,
+# add as a spam corpus to those who want it.
+#
 # Revision 2.13  2003/10/16 16:25:16  stuart
 # Test for and fix tag not being found in base64 encoded segments.
 # We fix by reencoding as quoted printable.
@@ -283,15 +287,19 @@ class DSpamDirectory(object):
     self.totals = ds.totals
     # innoculate other users
     if sig:
-      innoc_file = os.path.join(self.userdir,'innoculation')
-      users = parse_groups(innoc_file,dups=True).get(user,[])
-      opts = dspam.DSF_CORPUS|dspam.DSF_CHAINED|dspam.DSF_SIGNATURE
-      for u in users:
-        self.log('INNOC:',u)
-	u_grp = self.get_group(u)
-	u_dict = os.path.join(self.userdir,u_grp+'.dict')
-	ds = dspam.dspam(u_dict,dspam.DSM_ADDSPAM,opts)
-	ds.process(sig)
+      try:
+	innoc_file = os.path.join(self.userdir,'innoculation')
+	users = parse_groups(innoc_file,dups=True).get(user,[])
+	opts = dspam.DSF_CORPUS|dspam.DSF_CHAINED|dspam.DSF_SIGNATURE
+	for u in users:
+	  self.log('INNOC:',u)
+	  u_grp = self.get_group(u)
+	  u_dict = os.path.join(self.userdir,u_grp+'.dict')
+	  ds = dspam.dspam(u_dict,dspam.DSM_ADDSPAM,opts)
+	  ds.process(sig)
+      except Exception,x:
+	self.log('FAIL:',x)
+        # not critical if innoculation fails, so keep going
     return txt
 
   def add_spam(self,user,txt):
