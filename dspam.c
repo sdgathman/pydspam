@@ -25,6 +25,9 @@
 
 /* 
  * $Log$
+ * Revision 2.10  2003/09/03 04:15:51  stuart
+ * No more copyback in dspam-2.6.5
+ *
  * Revision 2.9  2003/08/30 04:46:57  stuart
  * Begin higher level framework: signature database and quarantine mbox
  *
@@ -167,8 +170,10 @@ _dspam_process(PyObject *dspamobj, PyObject *args) {
 	  self->sig = 0;
 	}
       }
+      /* buf is allocated by libdspam only in DSM_PROCESS mode,
+       * otherwise it is allocated by the caller. */
+      free(buf);
     }
-    free(buf);
   }
   else {
     Py_XDECREF(self->sig);
