@@ -17,6 +17,7 @@ URL: http://www.bmsi.com/python/dspam.html
 Group: Development/Libraries
 Source: http://bmsi.com/python/pydspam-1.1.5.tar.gz
 Buildroot: /var/tmp/pydspam-root
+Requires: dspam == 2.6.5.2
 BuildRequires: %{python}-devel dspam-devel == 2.6.5.2
 Obsoletes: dspam-python
 
@@ -50,7 +51,7 @@ cat >$ETCDIR/cron.hourly/dspam <<'EOF'
 #!/bin/sh
 cd /var/lib/dspam
 exec >>reprocess.log 2>&1
-/usr/local/bin/pydspam_process *.spam *.fp
+/usr/local/sbin/pydspam_process.py *.spam *.fp
 EOF
 chmod a+x $ETCDIR/cron.hourly/dspam
 
@@ -87,20 +88,22 @@ done <INSTALLED_FILES
 
 # install python utilities
 mkdir -p $RPM_BUILD_ROOT/usr/local/bin
+mkdir -p $RPM_BUILD_ROOT/usr/local/sbin
 cp -p dspam_anal.py $RPM_BUILD_ROOT/usr/local/bin/pydspam_anal
 cp -p dspam_corpus.py $RPM_BUILD_ROOT/usr/local/bin/pydspam_corpus
-cp -p reprocess.py $RPM_BUILD_ROOT/usr/local/bin/pydspam_process
+cp -p pydspam_process.py $RPM_BUILD_ROOT/usr/local/sbin
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
 %files -f INSTALLED_FILES
 %defattr(-,root,root)
-%doc dspam.html *dspam*.py Notes*
+%doc NEWS dspam.html dspam_dump.py Notes*
 /etc/cron.hourly/dspam
-%attr(0775,root,root)/usr/local/bin/pydspam_anal
-%attr(0775,root,root)/usr/local/bin/pydspam_corpus
-%attr(0775,root,root)/usr/local/bin/pydspam_process
+%attr(0775,root,root)/usr/local/bin/*
+%attr(0775,root,root)/usr/local/sbin/*
+%attr(0755,dspam,dspam)%{htmldir}/dspam/dspamcgi.py
+%{cgibin}/pydspam.cgi
 
 %changelog
 * Fri Mar 12 2004 Stuart Gathman <stuart@bmsi.com> 1.1.6-1
