@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.4  2003/09/01 15:30:10  stuart
+# Unittest quarantine
+#
 # Revision 2.3  2003/08/30 20:24:30  stuart
 # Unit test high level Dspam
 #
@@ -47,7 +50,7 @@ def put_signature(sig,sigfile,status):
   return key
 
 # add tag to a non-multipart message
-def add_signature_tag(msg,sigkey):
+def _tag_part(msg,sigkey):
   assert not msg.is_multipart()
   tag = "\n<!DSPAM:%s>\n\n" % sigkey
   cte = msg.get('content-transfer-encoding', '').lower()
@@ -60,6 +63,35 @@ def add_signature_tag(msg,sigkey):
   if recode:
     del msg["content-transfer-encoding"]
     encode_base64(msg)
+
+def add_signature_tag(txt,sigkey,prob=None):
+      # add signature key to message
+      fp = StringIO.StringIO(txt)
+      msg = mime.MimeMessage(fp)
+      del fp
+      if not prob == None:
+	msg['X-DSpam-Score'] = '%f'%prob
+      if not msg.is_multipart():
+        _tag_part(msg,sigkey)
+      else:
+        # check whether any explicit html
+	any_html = False
+        for part in msg.walk():
+	  if part.get_type() == 'text/html':
+	    any_html = True
+	    break
+	# add tag to first suitable text segment
+	done = False
+	for part in msg.walk():
+	  if not part.is_multipart():
+	    if part.get_type() == 'text/html' \
+	      or not any_html and part.get_main_type() == 'text':
+	      _tag_part(part,sigkey)
+	      done = True
+	      break
+	if not done:
+	  msg.epilog = "\n<!DSPAM:%s>\n\n" % sigkey
+      return msg.as_string()
 
 def extract_signature_tags(txt):
   tags = []
@@ -118,47 +150,24 @@ class DSpamDirectory(object):
     try:
       txt = '\n'.join(txt.splitlines())+'\n' # convert to unix EOL
       ds.process(txt)
-      # quarantine mail if dspam thinks it looks spammy
-      if ds.result == dspam.DSR_ISSPAM:
-	try:
+
+      sigkey = put_signature(ds.signature,sigfile,ds.result)
+      if not sigkey: return txt
+
+      try:
+	# add signature key to message
+	txt = add_signature_tag(txt,sigkey,ds.probability)
+
+	# quarantine mail if dspam thinks it looks spammy
+	if ds.result == dspam.DSR_ISSPAM:
 	  fp = open(mbox,'a')
 	  if not txt.startswith('From '):
 	    fp.write('From dspam %s\n' % time.ctime())
 	  fp.write(txt)
 	  fp.close()
 	  return None
-	except: pass
-      # if apparently innocent, or quarantine failes, save signature in db
-      sigkey = put_signature(ds.signature,sigfile,ds.result)
-      if not sigkey: return txt
+      except: pass
 
-      # add signature key to message
-      prob = ds.probability
-      fp = StringIO.StringIO(txt)
-      msg = mime.MimeMessage(fp)
-      del fp
-      msg['X-DSpam-Score'] = '%f'%prob
-      if not msg.is_multipart():
-        add_signature_tag(msg,sigkey)
-      else:
-        # check whether any explicit html
-	any_html = False
-        for part in msg.walk():
-	  if part.get_type() == 'text/html':
-	    any_html = True
-	    break
-	# add tag to first suitable text segment
-	done = False
-	for part in msg.walk():
-	  if not part.is_multipart():
-	    if part.get_type() == 'text/html' \
-	      or not any_html and part.get_main_type() == 'text':
-	      add_signature_tag(part,sigkey)
-	      done = True
-	      break
-	if not done:
-	  msg.epilog = "\n<!DSPAM:%s>\n\n" % sigkey
-      return msg.as_string()
     finally:
       ds.unlock()
       ds.destroy()
@@ -188,6 +197,7 @@ class DSpamDirectory(object):
     finally:
       ds.unlock()
     if not done:	# no tags in sig database, use full text
+      print 'No tags: Using full text'
       opts = dspam.DSF_CHAINED|dspam.DSF_SIGNATURE|dspam.DSF_IGNOREHEADER
       txt = '\n'.join(txt.splitlines())+'\n' # convert to unix EOL
       ds = dspam.dspam(dspam_dict,op,opts)

@@ -3,6 +3,8 @@ import os
 import os.path
 import Dspam
 import bsddb
+import mailbox
+from email.Parser import Parser
 
 userdir = 'testdir'	# test user directory
 
@@ -78,8 +80,30 @@ class pyDSpamTestCase(unittest.TestCase):
       self.failIf(not txt)
 
     txt = open('test/spam7').read()	# spam mail
-    qtxt = open(mbox).read()
-    self.failUnless(qtxt.endswith(txt))
+
+    # now receive a message that will be a false positive
+    # I manually ran dspam_anal.py to find spammy keywords after
+    # the above, then constructed a message that is detected as spam.
+
+    txt = open('test/fp1').read()	# innocent mail that looks spammy
+    txt = ds.check_spam('tonto',txt)
+    self.failIf(txt)	# message should have been quarrantined
+    fp = open(mbox)
+    parser = Parser()
+    mb = mailbox.PortableUnixMailbox(fp,parser.parse)
+    msg = mb.next()	# first message is spam
+    self.assertEqual(msg.get('subject'),
+	'Just another "Crappy Day in Paradise" here @ the Ranch')
+    msg = mb.next()	# get 2nd message, which should be our false positive
+    self.assertEqual(msg.get('subject'),'Just another unit test')
+    txt = msg.as_string()
+    tot = ds.false_positive('tonto',txt)	# feedback as false positive
+    self.assertEqual(tot[3],1)	# should be 1 FP
+
+    # now receive the innocent mail again, it should not look spammy anymore.
+    txt = open('test/fp1').read()	# innocent mail that looked spammy
+    txt = ds.check_spam('tonto',txt)
+    self.failUnless(txt)
 
 def suite(): return unittest.makeSuite(pyDSpamTestCase,'test')
 

@@ -103,7 +103,7 @@ if len(sys.argv) < 2:
   sys.exit(2)
 
 user = sys.argv[1]
-if os.path.isabs(user):
+if os.path.isabs(user) or user.endswith('.dict'):
   dict = user
 else:
   dict = os.path.join(userdir,'%s.dict'%user)
