@@ -1,5 +1,9 @@
 #
 # $Log$
+# Revision 2.21.2.3  2004/01/27 03:46:55  stuart
+# dspam locking doesn't work right with multiple locks held in same process,
+# so wrap dspam operations in mutex.
+#
 # Revision 2.22  2003/12/04 23:19:07  stuart
 # Save dspam result.  Pass on exceptions when attempting to quarantine.
 #
@@ -225,8 +229,8 @@ class DSpamDirectory(object):
     try:
       _seq_lock.acquire()
       dspam.file_lock(dspam_dict)
-      ds = dspam.dspam(dspam_dict,dspam.DSM_PROCESS,opts)
       txt = convert_eol(txt)
+      ds = dspam.dspam(dspam_dict,dspam.DSM_PROCESS,opts)
       try:
 	ds.process(txt)
 	self.totals = ds.totals
@@ -278,8 +282,9 @@ class DSpamDirectory(object):
       finally:
 	dspam.file_unlock(dspam_dict)
 	ds.destroy()
-	_seq_lock.release()
-    finally: os.umask(savmask)
+    finally:
+      _seq_lock.release()
+      os.umask(savmask)
     return txt
 
   def _feedback(self,user,txt,op):
