@@ -1,9 +1,11 @@
 #!/usr/bin/env python2
+# $Log$
 import mailbox
 import sys
 import os
 import os.path
 import mime
+import time
 import Dspam
 
 def log(*msg):
@@ -31,6 +33,8 @@ for fname in sys.argv[1:]:
 	except Exception,x:
 	  log('FAIL:',x)
 	  f = open(os.path.join(dirname,user + '.fail'),'a')
+	  if not txt.startswith('From '):
+	    txt = 'From %s %s\n' % (user,time.ctime()) + txt
 	  f.write(txt)
 	  f.close()
       fp.close()
