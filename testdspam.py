@@ -4,7 +4,7 @@ from dspam import *
 
 count = 20
 hams = ('samp1','amazon','test8')
-spams = ('honey','spam44','spam7','spam8')
+spams = ('honey','spam44','spam7','spam8','bounce')
 fname = 'test.dict'
 
 class DSpamTestCase(unittest.TestCase):
@@ -104,6 +104,7 @@ class DSpamTestCase(unittest.TestCase):
     self.assertEqual(ds.probability,1.0)
     self.assertEqual(ds.totals,(slen*count + 1,hlen*count,slen*count,0))
     totals = ds.totals
+    spamsig = ds.signature # save for FALSEPOSITIVE test
 
     # a slightly different version of a spam should still get rejected
     lines = msg.splitlines()
@@ -120,10 +121,20 @@ class DSpamTestCase(unittest.TestCase):
     self.assertEqual(ds.totals,totals)
     sig = ds.signature
 
-    # actually process
+    # actually process with CORPUS
     ds = dspam(fname,DSM_ADDSPAM,DSF_CORPUS|DSF_CHAINED|DSF_SIGNATURE)
     ds.process(sig)
     self.assertEqual(ds.totals,(slen*count + 2,hlen*count,slen*count,0))
+
+    # test false positive via signature
+    ds = dspam(fname,DSM_FALSEPOSITIVE,DSF_CHAINED|DSF_SIGNATURE)
+    ds.process(spamsig)
+    self.assertEqual(ds.totals,(slen*count + 1,hlen*count+1,slen*count,1))
+
+    # test false positive via full text
+    ds = dspam(fname,DSM_FALSEPOSITIVE,DSF_CHAINED)
+    ds.process(msglist[0])
+    self.assertEqual(ds.totals,(slen*count ,hlen*count+2,slen*count,2))
 
 def suite(): return unittest.makeSuite(DSpamTestCase,'test')
 
