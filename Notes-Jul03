@@ -1,0 +1,84 @@
+As promised, here is the weekly summary of my ideas concerning dspam.  I
+will be on vacation all next week, so take your time.
+
+Database scrubbing
+
+  The dspam_clean utility should work like dspam_purge - copy records to
+  be retained to a new database, then delete and rename.  This will
+  clean any glitches from bugs in libdb, or abnormal terminations of
+  the dspam MDA.  Also, both purge and clean need to check for encountering
+  the same record again while reading the old database.  This is easily 
+  done by checking for dups while writing the new database.
+
+  I have had dspam_purge in an infinite loop because of loops in the
+  dict.  I created a python version of dspam_purge that checks for 
+  encountering the same record again.  This effectively cleaned the
+  dictionary.
+
+  I have had the dspam MDA in an infinite loop while trying to delete
+  a signature because the sig database was corrupted - probably because
+  of the empty body crasher bug in libdspam (now fixed in my version).  Again,
+  a quick python script to copy the records to a new DB did the trick.  I will
+  create a full python replacement for dspam_clean after my vacation.
+
+Learning decay
+
+  There needs to be some sort of decay of learned messages.  Otherwise,
+  adaptation gets less and less with each message until we're not learning 
+  any more.  One approach would be to periodically divide all hit counts and
+  totals by 2.
+
+  For instance, when total messages (Spam + Innocent) reaches 4000 (or some
+  other number substantially bigger than 1000), then divide all hits and totals
+  in the dictionary by 2.  This will give the next 2000 messages double the
+  weight of the previous 4000.  And messages 6001-8000 will have four times the
+  weight of 1-4000, and twice the weight of 4001-6000.
+
+  We might then want to add a new totals record, e.g. '_GTOT'.  This
+  would keep the real (not scaled) totals that humans are interested in.
+  dspam_purge would be a good place to implement any such decay algorithm.
+
+Header triage
+
+  The idea of REJECT incoming mail by dspamming just the headers in 
+  the milter is fantastically sucessful - thanks to dspam keeping header
+  tokens separate from body tokens.  I have set the threshhold to .93.
+  I have removed many of the hard-wired keywords that would occasionally
+  give false positives (e.g. !!!).  I will continue rejecting porn
+  keywords via a hardwired list.  The false positive rate for dspam based
+  header triage is much lower (as in none yet) than for some of the most
+  effective hardwired keywords (other than porn).
+
+  The header filter uses our group dspam dictionary, so it automatically
+  learns about any spam that gets through the header filter!
+
+  I will put just the header triage in milter-0.5.6, leaving a full
+  fledged milter based system for later.  Your MDA approach works
+  perfectly well for a dspam group of smart users.  The group dict
+  for the smart users can then do header triage for everyone else.
+
+Extended signature state
+
+  A user can get confused when changing their mind about whether a
+  message is spam.  It is hard to remember whether you've already
+  done an ADDSPAM or FALSEPOSITIVE and which one you did last.
+  I will add a flag to the signature database to record the last
+  action for a signature.  The states will be NEW,SPAM,INNOCENT
+  Your MDA would always set the state to SPAM or INNOCENT.  Then
+  dspam --reverse would always know how to reverse the last action.
+  It would be nice for the user to query the current state given
+  a signature id.
+
+  I am considering having a NEW state for signatures that have not
+  yet been added to the statistics either way.  This would be useful
+  for users that are not diligent in classifying all email.
+
+Mozilla/Netscape bundles forwards
+
+  It is natural for users to select all their spam, then forward it
+  to the spam alias.  Unfortunately, Mozilla combines all the messages
+  into a single message for forwarding.  The dspam MDA finds only the first
+  signature tag in the combined message.
+
+  My suggestion is that the Dspam MDA should look for multiple DSPAM tags in 
+  the email.  Or perhaps, recursively scan rfc822 attachments.
