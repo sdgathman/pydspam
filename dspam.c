@@ -25,6 +25,9 @@
 
 /* 
  * $Log$
+ * Revision 2.9  2003/08/30 04:46:57  stuart
+ * Begin higher level framework: signature database and quarantine mbox
+ *
  * Revision 2.8  2003/07/30 19:45:30  stuart
  * Pydspam project.
  *
@@ -68,7 +71,6 @@ typedef struct {
   PyObject_HEAD
   DSPAM_CTX *ctx;	/* Dspam dictionary handle */
   PyObject *sig;
-  PyObject *copyback;
 } dspam_Object;
 
 static void
@@ -78,7 +80,6 @@ _dspam_dealloc(PyObject *s) {
   if (ctx)
     dspam_destroy(ctx);
   Py_XDECREF(self->sig);
-  Py_XDECREF(self->copyback);
   PyObject_DEL(self);
 }
 
@@ -92,7 +93,6 @@ _dspam_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
   if (self != 0) {
     self->ctx = 0;
     self->sig = 0;
-    self->copyback = 0;
   }
   return (PyObject *)self;
 }
@@ -145,7 +145,7 @@ _dspam_process(PyObject *dspamobj, PyObject *args) {
   rc = dspam_process(ctx,message);
 
   /* Retrieve output fields.  It looks like caller is responsible
-   * to free signature and copyback */
+   * to free signature */
   if (ctx->signature) {
     char *buf = ctx->signature->data;
     int len = ctx->signature->length;
@@ -174,15 +174,6 @@ _dspam_process(PyObject *dspamobj, PyObject *args) {
     Py_XDECREF(self->sig);
     self->sig = 0;
   }
-
-  Py_XDECREF(self->copyback);
-  if (ctx->copyback) {
-    self->copyback = PyString_FromString(ctx->copyback);
-    free(ctx->copyback);
-    ctx->copyback = 0;
-  }
-  else
-    self->copyback = 0;
 
   if (!rc) {
     Py_INCREF(Py_None);
@@ -379,8 +370,6 @@ static PyMethodDef dspamctx_methods[] = {
 };
 
 static PyMemberDef dspamctx_members[] = {
-  { "copyback",T_OBJECT,offsetof(dspam_Object,copyback),RO,
-    	"base64 decoded message" },
   { "signature",T_OBJECT,offsetof(dspam_Object,sig),RO,
     "Statistical Signature of message" },
   {0},

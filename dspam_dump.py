@@ -1,24 +1,12 @@
 #!/usr/bin/env python2
 
-import sys
 import bsddb
 import dspam
 import struct
 import time
 import os
 
-userdir = '/var/lib/dspam'
-
-if len(sys.argv) < 2:
-  print >>sys.stderr,'syntax: dspam_dump [user] ...'
-  sys.exit(2)
-
-for user in sys.argv[1:]:
-  if os.path.isabs(user) or user.endswith('.dict'):
-    dict = user
-  else:
-    dict = os.path.join(userdir,'%s.dict'%user)
-  #dict = 'test.dict'
+def dump_dict(dict):
   ds = dspam.dspam(dict,dspam.DSM_PROCESS,dspam.DSF_NOLOCK)
 
   ds.lock()
@@ -41,3 +29,19 @@ for user in sys.argv[1:]:
     except KeyError: pass
     db.close()
   finally: ds.unlock()
+
+userdir = '/var/lib/dspam'
+
+if __name__ == "__main__":
+  import sys
+  if len(sys.argv) < 2:
+    print >>sys.stderr,'syntax: dspam_dump [user|dict] ...'
+    sys.exit(2)
+
+  for user in sys.argv[1:]:
+    if os.path.isabs(user) or user.endswith('.dict'):
+      dict = user
+    else:
+      dict = os.path.join(userdir,'%s.dict'%user)
+    dump_dict(dict)
+    #dict = 'test.dict'

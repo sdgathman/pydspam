@@ -6,6 +6,7 @@ include test.py
 include dspam_clean.py
 include dspam_corpus.py
 include dspam_anal.py
+include dspam_dump.py
 include dspam_purge.py
 include dspam.html
 include dspam.c

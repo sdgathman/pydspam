@@ -48,7 +48,7 @@ class DSpamTestCase(unittest.TestCase):
     ds.destroy()
 
   # test base64 decoding in libdspam
-  def testCopyback(self):
+  def oldtestCopyback(self):
     try: os.unlink(fname)
     except: pass
     ds = dspam(fname,DSM_PROCESS,DSF_CHAINED|DSF_COPYBACK)
