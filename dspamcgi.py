@@ -34,7 +34,7 @@ from email.Header import decode_header
 #
 CONFIG = {
   'USERDIR': "/etc/mail/dspam",
-  'ME': "dspam.cgi",
+  'ME': "pydspam.cgi",
   'DOMAIN': "mail.bmsi.com",
   'DSPAM': "SMTP",	# send false positives via SMTP to ham@DOMAIN
 # 'DSPAM': "/usr/local/bin/falsepositive",	# run script for FPs
@@ -364,12 +364,14 @@ def CountMsgs(fname):
   "Quickly count messages in quarantine."  
   # If memory use is a problem for huge quarantines, loop over an mbox
   # instead.
-  FILE = open(fname,'r')
   cnt = 0
-  for ln in FILE:
-    if ln.startswith('From '):
-	cnt += 1
-  FILE.close()
+  try:
+    FILE = open(fname,'r')
+    for ln in FILE:
+      if ln.startswith('From '):
+	  cnt += 1
+    FILE.close()
+  except IOError: pass
   return cnt
 
 def Welcome():

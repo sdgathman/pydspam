@@ -103,6 +103,9 @@ rm -rf $RPM_BUILD_ROOT
 %attr(0775,root,root)/usr/local/bin/pydspam_process
 
 %changelog
+* Fri Mar 12 2004 Stuart Gathman <stuart@bmsi.com> 1.1.6-1
+- dspamcgi.py: sort by subject, decode subjects, handle large quarantine
+- Dspam.py: 
 * Thu Dec 18 2003 Stuart Gathman <stuart@bmsi.com> 1.1.5-1
 - pydspam-1.1.5
 - Move dspam-python to its own package

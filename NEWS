@@ -1,5 +1,9 @@
 Here is a history of user visible changes to pydspam:
 
+1.1.6	CGI - sort by subject, decode subject, handle large quarantine
+	CGI - handle missing alerts, quarantine
+	Use mutex to open only 1 dspam context at a time -
+	  locking is *s l o w* on dspam-2.6, and broken in dspam-2.8.
 1.1.5	Innoculate multiple tags
 	Python CGI
 1.1.4	Screening feature
