@@ -309,14 +309,17 @@ def ViewSpam():
     else:
       h = decode_header(subj)
       if len(h) == 1 and h[0][1]:
+	p = h[0]
 	try:
-          p = h[0]
 	  u = unicode(p[0],p[1])
-	  subj = u.encode('us-ascii')
-	except LookupError:
+	  try:
+	    subj = u.encode('us-ascii')
+	  except LookupError:
+	    pass
+	  except UnicodeError:
+	    subj = u.encode('utf8')
+	except:
 	  pass
-        except UnicodeError:
-	  subj = u.encode('utf8')
     heading['Subject'] = trimString(subj,40)
     heading['Message-ID'] = messageID(msg)
 
