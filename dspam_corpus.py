@@ -39,7 +39,7 @@ ds = dspam(dict,mode,DSF_CORPUS|DSF_CHAINED|DSF_NOLOCK)
 ds.lock()
 try:
   for msg in iter(mbox.next,None):
-    print msg.unixfrom
+    print msg.unixfrom.strip()
     data = msgAsString(msg)
     ds.process(data)
   totals = ds.totals

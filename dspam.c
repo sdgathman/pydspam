@@ -25,6 +25,9 @@
 
 /* 
  * $Log$
+ * Revision 2.2  2003/06/30 21:25:44  stuart
+ * DSPAM destroy() method to release resources
+ *
  * Revision 2.1  2003/06/27 19:51:10  stuart
  * Add dspam interface.
  *
@@ -356,6 +359,9 @@ initdspam(void) {
    CONST(DSF_CHAINED); CONST(DSF_SIGNATURE);
    CONST(DSF_NOLOCK); CONST(DSF_COPYBACK);
    CONST(DSF_IGNOREHEADER); CONST(DSF_CORPUS);
+#ifdef DSF_CLASSIFY
+   CONST(DSF_CLASSIFY);
+#endif
 /* DSPAM Processor modes */
    CONST(DSM_PROCESS); CONST(DSM_ADDSPAM); CONST(DSM_FALSEPOSITIVE);
 /* DSPAM Results */

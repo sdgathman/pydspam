@@ -5,12 +5,13 @@ from dspam import *
 count = 20
 hams = ('samp1','amazon','test8')
 spams = ('honey','spam44','spam7','spam8')
+fname = 'test.dict'
 
 class DSpamTestCase(unittest.TestCase):
 
   def testCorpus(self):
-    fname = 'test.dict'
-    os.unlink(fname)
+    try: os.unlink(fname)
+    except: pass
     ds = dspam(fname,DSM_PROCESS,DSF_CHAINED|DSF_CORPUS)
     for ham in hams:
       msg = open('test/'+ham).read()
@@ -26,10 +27,33 @@ class DSpamTestCase(unittest.TestCase):
     self.assertEqual(ds.totals,(len(spams),len(hams),0,0))
     ds.destroy()
 
+  def testClassify(self):
+    try: os.unlink(fname)
+    except: pass
+    ds = dspam(fname,DSM_PROCESS,DSF_CLASSIFY|DSF_CHAINED|DSF_SIGNATURE)
+    msg = open('test/'+hams[0]).read()
+    msg = '\n'.join(msg.splitlines())
+    ds.process(msg)
+    totals = ds.totals
+    sig = ds.signature
+    ds.process(msg)
+    # check that CLASSIFY changes neither in memory nor on disk totals
+    self.assertEqual(ds.totals,totals)
+    self.assertEqual(totals,(0,0,0,0))
+    ds.destroy()
+    # test adding the signature later
+    ds = dspam(fname,DSM_ADDSPAM,DSF_CORPUS|DSF_CHAINED|DSF_SIGNATURE)
+    ds.process(sig)
+    self.assertEqual(ds.totals,(1,0,0,0))
+    ds.destroy()
+
   # test mime parameter parsing
   def testProcess(self):
-    fname = 'test.dict'
-    os.unlink(fname)
+    hlen = len(hams)
+    slen = len(spams)
+    tlen = hlen + slen
+    try: os.unlink(fname)
+    except: pass
     ds = dspam(fname,DSM_PROCESS,DSF_CHAINED|DSF_SIGNATURE|DSF_NOLOCK)
     ds.lock()
     try:
@@ -43,7 +67,7 @@ class DSpamTestCase(unittest.TestCase):
 	for msg in msglist:
 	  ds.process(msg)
 	  self.assertEqual(ds.result,DSR_ISINNOCENT)
-      self.assertEqual(ds.totals,(0,len(hams)*count,0,0))
+      self.assertEqual(ds.totals,(0,hlen*count,0,0))
 
       # add lots of spam and save the sigs
       sigs = []
@@ -62,7 +86,7 @@ class DSpamTestCase(unittest.TestCase):
       ds.unlock()
 
     # now tell it about all that spam
-    self.assertEqual(ds.totals,(0,7*count,0,0))
+    self.assertEqual(ds.totals,(0,tlen*count,0,0))
     ds = dspam(fname,DSM_ADDSPAM,DSF_CHAINED|DSF_SIGNATURE|DSF_NOLOCK)
     ds.lock()
     try:
@@ -70,7 +94,7 @@ class DSpamTestCase(unittest.TestCase):
 	ds.process(spamsig)
     finally:
       ds.unlock()
-    self.assertEqual(ds.totals,(4*count,3*count,4*count,0))
+    self.assertEqual(ds.totals,(slen*count,hlen*count,slen*count,0))
 
     # exactly the same spam should get rejected with prob = 1.0
     ds = dspam(fname,DSM_PROCESS,DSF_CHAINED|DSF_SIGNATURE)
@@ -78,7 +102,8 @@ class DSpamTestCase(unittest.TestCase):
     ds.process(msg)
     self.assertEqual(ds.result,DSR_ISSPAM)
     self.assertEqual(ds.probability,1.0)
-    self.assertEqual(ds.totals,(4*count + 1,3*count,4*count,0))
+    self.assertEqual(ds.totals,(slen*count + 1,hlen*count,slen*count,0))
+    totals = ds.totals
 
     # a slightly different version of a spam should still get rejected
     lines = msg.splitlines()
@@ -86,10 +111,19 @@ class DSpamTestCase(unittest.TestCase):
     lines[1] = "To: victim <victim@lamb.com>"
     lines[2] = "Subject: Approval"
     msg = '\n'.join(lines)
+
+    # test DSF_CLASSIFY
+    ds = dspam(fname,DSM_PROCESS,DSF_CLASSIFY|DSF_CHAINED|DSF_SIGNATURE)
     ds.process(msg)
     self.assertEqual(ds.result,DSR_ISSPAM)
     self.failUnless(ds.probability < 1.0)
-    self.assertEqual(ds.totals,(4*count + 2,3*count,4*count,0))
+    self.assertEqual(ds.totals,totals)
+    sig = ds.signature
+
+    # actually process
+    ds = dspam(fname,DSM_ADDSPAM,DSF_CORPUS|DSF_CHAINED|DSF_SIGNATURE)
+    ds.process(sig)
+    self.assertEqual(ds.totals,(slen*count + 2,hlen*count,slen*count,0))
 
 def suite(): return unittest.makeSuite(DSpamTestCase,'test')
 
