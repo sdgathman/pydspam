@@ -10,3 +10,4 @@ include dspam_purge.py
 include dspam.html
 include dspam.c
 include test/*
+include Notes*

@@ -10,7 +10,7 @@ import os
 PURGE_BELOW_QUOTA   =    86400 * 45
 PURGE_NO_SPAM_HITS  =    86400 * 30
 PURGE_ONE_INNOCENT_HIT = 86400 * 15
-DEBUG = 1
+DEBUG = False
 
 def rename(src,dst):
   try: os.rename(src,dst)
