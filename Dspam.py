@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.17  2003/10/22 20:54:49  stuart
+# Properly teach false positives.
+#
 # Revision 2.16  2003/10/22 05:30:43  stuart
 # Support screening with classify flag to check_spam
 #
@@ -253,6 +256,7 @@ class DSpamDirectory(object):
     dspam_dict,sigfile,mbox = self.user_files(user)
     opts = dspam.DSF_CHAINED|dspam.DSF_SIGNATURE|dspam.DSF_NOLOCK
     sig = None
+    sigs = []
     ds = dspam.dspam(dspam_dict,op,opts)
     try:
       ds.lock()
@@ -286,6 +290,7 @@ class DSpamDirectory(object):
 	      sig = sig[:-rem]
 	    else:
 	      status = ''
+	    sigs.append(sig)
 	    ds.process(sig)	# reverse stats
 	    del db[tag]
 	    try: print >>open(self.dspam_stats,'w'),"%d,%d,%d,%d" % ds.totals
@@ -305,7 +310,7 @@ class DSpamDirectory(object):
       ds.process(txt)
     self.totals = ds.totals
     # innoculate other users who requested it
-    if sig:
+    if sigs:
       try:
 	innoc_file = os.path.join(self.userdir,'innoculation')
 	users = parse_groups(innoc_file,dups=True).get(user,[])
@@ -315,7 +320,8 @@ class DSpamDirectory(object):
 	  u_grp = self.get_group(u)
 	  u_dict = os.path.join(self.userdir,u_grp+'.dict')
 	  ds = dspam.dspam(u_dict,op,opts)
-	  ds.process(sig)
+	  for sig in sigs:
+	    ds.process(sig)
       except Exception,x:
 	self.log('FAIL:',x)
         # not critical if innoculation fails, so keep going
