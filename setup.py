@@ -1,7 +1,7 @@
 import os
 from distutils.core import setup, Extension
 
-setup(name = "dspam", version = "2.6.2",
+setup(name = "dspam", version = "1.0",
 	description="Python interface to libdspam",
 	long_description="""\
 This is a python extension module to enable python scripts to
