@@ -25,6 +25,9 @@
 
 /* 
  * $Log$
+ * Revision 2.4  2003/07/07 19:32:42  stuart
+ * Support file_lock and file_unlock
+ *
  * Revision 2.3  2003/07/03 16:22:45  stuart
  * Support DSF_CLASSIFY in dspam-2.6.2
  *
@@ -39,7 +42,7 @@
 #include <pthread.h>
 #include <Python.h>
 #include <structmember.h>
-#include <libdspam.h>
+#include "../dspam/libdspam.h"
 
 /* These functions are not exported, but are necessary to replicate
  * the functionality of dspam. */
@@ -189,6 +192,61 @@ _dspam_process(PyObject *dspamobj, PyObject *args) {
   return NULL;
 }
 
+/* convert token dictionary to a Python dictionary */
+static PyObject *toDict(struct lht *freq) {
+  PyObject *dict = PyDict_New();
+  struct lht_node *node_lht;
+  struct lht_c c_lht;
+  if (dict == 0) return PyErr_NoMemory();
+  node_lht = c_lht_first(freq, &c_lht);
+  while (node_lht != NULL) {
+    PyObject *key = PyLong_FromUnsignedLongLong(node_lht->key);
+    PyObject *tok = Py_BuildValue("(si)",
+	node_lht->token_name,node_lht->frequency);
+    if (!key || !tok || PyDict_SetItem(dict,key,tok)) {
+      Py_XDECREF(key);
+      Py_XDECREF(tok);
+      Py_XDECREF(dict);
+      return NULL;
+    }
+    node_lht = c_lht_next(freq, &c_lht);
+  } 
+  return dict;
+}
+
+static char _dspam_tokenize__doc__[] =
+"tokenize(header,body,chained) -> dict\n\
+  Tokenize the header and body using the dspam algorithm, and\n\
+  return a dictionary of token name and frequency by crc64 key.";
+
+static PyObject *
+_dspam_tokenize(PyObject *module, PyObject *args) {
+  char *header;
+  char *body;
+  int chained = 1;
+  struct lht *freq;
+  PyObject *dict;
+  if (!PyArg_ParseTuple(args, "zz|i:tokenize",&header,&body)) return NULL;
+  if (header == 0) header = " ";
+  if (body == 0) body = " ";
+  /* Tokenize scribbles on header and body text, so copy first. */
+  header = strdup(header);
+  if (header == 0) return PyErr_NoMemory();
+  body = strdup(body);
+  if (body == 0) {
+    free(header);
+    return PyErr_NoMemory();
+  }
+  freq = _ds_tokenize(chained,header,body);
+  free(header);
+  free(body);
+  if (freq == 0) return PyErr_NoMemory();
+  /* convert token dictionary to a Python dictionary */
+  dict = toDict(freq);
+  lht_destroy(freq);
+  return dict;
+}
+
 static char _dspam_lock__doc__[] =
 "lock() -> None\n\
   Lock the DSPAM context.  When used with the DSF_NOLOCK flag\n\
@@ -328,6 +386,7 @@ static PyGetSetDef dspamctx_getsets[] = {
 };
 
 static PyMethodDef _dspam_methods[] = {
+   { "tokenize", _dspam_tokenize, METH_VARARGS, _dspam_tokenize__doc__},
    { "file_lock",_dspam_file_lock,METH_VARARGS,_dspam_file_lock__doc__},
    { "file_unlock",_dspam_file_unlock,METH_VARARGS,_dspam_file_unlock__doc__},
    { NULL, NULL }
