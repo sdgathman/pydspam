@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.5  2003/09/01 18:00:18  stuart
+# False positives needed dspam tagging.
+#
 # Revision 2.4  2003/09/01 15:30:10  stuart
 # Unittest quarantine
 #
@@ -66,9 +69,7 @@ def _tag_part(msg,sigkey):
 
 def add_signature_tag(txt,sigkey,prob=None):
       # add signature key to message
-      fp = StringIO.StringIO(txt)
-      msg = mime.MimeMessage(fp)
-      del fp
+      msg = mime.MimeMessage(StringIO.StringIO(txt))
       if not prob == None:
 	msg['X-DSpam-Score'] = '%f'%prob
       if not msg.is_multipart():
@@ -119,6 +120,11 @@ def parse_groups(groupfile):
   except: pass
   return groups
 
+def convert_eol(txt):
+  txt = txt.splitlines()
+  txt.append('')
+  return '\n'.join(txt)
+
 class DSpamDirectory(object):
 
   def __init__(self,userdir):
@@ -148,7 +154,7 @@ class DSpamDirectory(object):
     ds = dspam.dspam(dspam_dict,dspam.DSM_PROCESS,opts)
     ds.lock()
     try:
-      txt = '\n'.join(txt.splitlines())+'\n' # convert to unix EOL
+      txt = convert_eol(txt)
       ds.process(txt)
 
       sigkey = put_signature(ds.signature,sigfile,ds.result)

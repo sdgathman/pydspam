@@ -101,7 +101,7 @@ class pyDSpamTestCase(unittest.TestCase):
     self.assertEqual(tot[3],1)	# should be 1 FP
 
     # now receive the innocent mail again, it should not look spammy anymore.
-    txt = open('test/fp1').read()	# innocent mail that looked spammy
+    txt = open('test/fp1').read()	# now innocent looking mail
     txt = ds.check_spam('tonto',txt)
     self.failUnless(txt)
 
