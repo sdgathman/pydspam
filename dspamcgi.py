@@ -144,13 +144,10 @@ def writeMsg(msg,fp):
 
 def messageID(msg):
   "Extract an ID suitable for selecting messages from a mailbox."
-  message_id = msg.getheader('Message-ID',"")
-  if message_id == "":
-    m = md5.new()
-    for h in msg.headers:
-      m.update(h)
-    return m.hexdigest()
-  return message_id.replace('"','').replace("'","").replace('\n','')
+  m = md5.new()
+  for h in msg.headers:
+    m.update(h)
+  return m.hexdigest()
 
 def NotSpam(multi=False):
   if multi:
