@@ -1,5 +1,10 @@
 #
 # $Log$
+# Revision 2.8  2003/09/06 05:05:22  stuart
+# Modify API to:
+# o record recipients in quarantine
+# o return message with tags removed for false_positive
+#
 # Revision 2.7  2003/09/01 19:34:18  stuart
 # Tagging nits.
 #
@@ -146,10 +151,11 @@ class DSpamDirectory(object):
     group = self.get_group(user)
     # find names of files
     dspam_userdir = self.userdir
-    dspam_dict = os.path.join(dspam_userdir,group+'.dict')
-    sigfile = os.path.join(dspam_userdir,user+'.sig')
-    mbox = os.path.join(dspam_userdir,user+'.mbox')
-    return (dspam_dict,sigfile,mbox)
+    self.dspam_dict = os.path.join(dspam_userdir,group+'.dict')
+    self.dspam_stats = os.path.join(dspam_userdir,group+'.stats')
+    self.sigfile = os.path.join(dspam_userdir,user+'.sig')
+    self.mbox = os.path.join(dspam_userdir,user+'.mbox')
+    return (self.dspam_dict,self.sigfile,self.mbox)
 
 # check spaminess for a message
   def check_spam(self,user,txt,recipients = None):
@@ -163,6 +169,8 @@ class DSpamDirectory(object):
     try:
       txt = convert_eol(txt)
       ds.process(txt)
+      try: print >>open(self.dspam_stats,'w'),"%d,%d,%d,%d" % ds.totals
+      except: pass
 
       sigkey = put_signature(ds.signature,sigfile,ds.result)
       if not sigkey: return txt
@@ -210,6 +218,8 @@ class DSpamDirectory(object):
 	    ds.process(sig)	# reverse stats
 	    del db[tag]
 	    done = True
+	    try: print >>open(self.dspam_stats,'w'),"%d,%d,%d,%d" % ds.totals
+	    except: pass
       finally:
 	db.close()
     finally:
