@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.15  2003/10/22 01:55:10  stuart
+# Log and ignore innoculation errors.
+#
 # Revision 2.14  2003/10/16 22:21:15  stuart
 # Code and test innoculations.  When a message is reported as spam,
 # add as a spam corpus to those who want it.
@@ -183,17 +186,19 @@ class DSpamDirectory(object):
     return (self.dspam_dict,self.sigfile,self.mbox)
 
 # check spaminess for a message
-  def check_spam(self,user,txt,recipients = None):
+  def check_spam(self,user,txt,recipients = None,classify=False):
     "Return tagged message, or None if message was quarantined."
 
     dspam_dict,sigfile,mbox = self.user_files(user)
 
     opts = dspam.DSF_CHAINED|dspam.DSF_SIGNATURE|dspam.DSF_NOLOCK
-    savmask = os.umask(002) # mail group must be able write dict and sig
+    if classify:
+      opts |= dspam.DSF_CLASSIFY
+    savmask = os.umask(006) # mail group must be able write dict and sig
     try:
+      dspam.file_lock(dspam_dict)
       ds = dspam.dspam(dspam_dict,dspam.DSM_PROCESS,opts)
       txt = convert_eol(txt)
-      ds.lock()
       try:
 	ds.process(txt)
 	self.totals = ds.totals
@@ -201,7 +206,18 @@ class DSpamDirectory(object):
 	try: print >>open(self.dspam_stats,'w'),"%d,%d,%d,%d" % ds.totals
 	except: pass
 
-	sigkey = put_signature(ds.signature,sigfile,ds.result)
+	sig = ds.signature
+	if classify:
+	  if ds.result == dspam.DSR_ISINNOCENT: return txt
+	  opts &= ~dspam.DSF_CLASSIFY
+	  ds = dspam.dspam(dspam_dict,dspam.DSM_PROCESS,opts)
+	  ds.process(txt) # result should be same since dict is locked
+	  if ds.result != dspam.DSR_ISSPAM:
+	    self.log("WARN: classification changed")
+	    sig = ds.signature
+	    ds = dspam.dspam(dspam_dict,dspam.DSM_ADDSPAM,opts)
+	    ds.process(sig) # force back to SPAM
+	sigkey = put_signature(sig,sigfile,ds.result)
 	if not sigkey: return txt
 
 	try:
@@ -225,7 +241,7 @@ class DSpamDirectory(object):
 	except: pass
 
       finally:
-	ds.unlock()
+	dspam.file_unlock(dspam_dict)
 	ds.destroy()
     finally: os.umask(savmask)
     return txt
@@ -285,7 +301,7 @@ class DSpamDirectory(object):
       txt = convert_eol(txt)
       ds.process(txt)
     self.totals = ds.totals
-    # innoculate other users
+    # innoculate other users who requested it
     if sig:
       try:
 	innoc_file = os.path.join(self.userdir,'innoculation')

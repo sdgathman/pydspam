@@ -42,6 +42,8 @@ class pyDSpamTestCase(unittest.TestCase):
   # Check fallback for lock-timeout during addspam or falsepositive
   def testLock(self):
     ds = self.ds
+    overflow = os.path.join(userdir,'tonto.spam')
+    self.failIf(os.path.exists(overflow))
     txt = open('test/samp1').read()	# innocent mail
     ds.check_spam('tonto',txt)
     txt = open('test/spam7').read()	# spam mail
@@ -53,7 +55,7 @@ class pyDSpamTestCase(unittest.TestCase):
     ds.add_spam('tonto',txt)
     ds1.unlock()
     # check that message got written to overflow
-
+    self.failUnless(os.path.exists(overflow))
 
   def testProcess(self):
     ds = self.ds
