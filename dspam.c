@@ -25,6 +25,9 @@
 
 /* 
  * $Log$
+ * Revision 2.5  2003/07/10 12:39:04  stuart
+ * export tokenize
+ *
  * Revision 2.4  2003/07/07 19:32:42  stuart
  * Support file_lock and file_unlock
  *
@@ -42,7 +45,7 @@
 #include <pthread.h>
 #include <Python.h>
 #include <structmember.h>
-#include "../dspam/libdspam.h"
+#include "../libdspam.h"
 
 /* These functions are not exported, but are necessary to replicate
  * the functionality of dspam. */
