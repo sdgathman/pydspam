@@ -16,6 +16,6 @@ use libdspam functionality.
 	ext_modules=[
 	  Extension("dspam", ["dspam.c"],
 	    extra_objects=["../.libs/libdspam.a"],
-	    libraries=["db-3.2"]
+	    libraries=["db"]
 	  )
 	])

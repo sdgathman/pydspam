@@ -33,6 +33,9 @@ if user.find('/') >= 0:
 else:
   dict = "/var/lib/dspam/%s.dict" % user
 
+if mode == DSM_PROCESS: exp_res = DSR_ISINNOCENT
+else: exp_res = DSR_ISSPAM
+
 f = open(file,"r")
 mbox = mailbox.PortableUnixMailbox(f)
 ds = dspam(dict,mode,DSF_CORPUS|DSF_CHAINED|DSF_NOLOCK)
@@ -42,6 +45,7 @@ try:
     print msg.unixfrom.strip()
     data = msgAsString(msg)
     ds.process(data)
+    assert ds.result == exp_res
   totals = ds.totals
 finally:
   ds.unlock()
