@@ -35,11 +35,11 @@ CONFIG = {
   'USERDIR': "/etc/mail/dspam",
   'ME': "dspam.cgi",
   'DOMAIN': "mydomain.com",
-# 'DSPAM': "SMTP",	# send false positives via SMTP to ham@DOMAIN
-  'DSPAM': "/usr/local/bin/falsepositive",	# run script for FPs
+  'DSPAM': "SMTP",	# send milter false positives via SMTP to ham@DOMAIN
+# 'DSPAM': "/usr/local/bin/falsepositive",	# run script for dspam FPs
   'LARGE_SCALE': 0
 }
-VIEWSPAM_MAX = 20
+VIEWSPAM_MAX = 30
 #
 ## End Configuration
 
@@ -49,7 +49,7 @@ FORM=None
 MAILBOX=None
 
 def DoCommand():
-  global remote_user,FORM,MAILBOX,USER
+  global remote_user,FORM,MAILBOX,USER,VIEWSPAM_MAX
   remote_user = os.environ.get('REMOTE_USER','')
   if remote_user == '':
     error("System Error. I was unable to determine what username you are.")
@@ -189,6 +189,10 @@ def DeleteSpam(remlist=None):
   FILE = open(MAILBOX,'r')
   mbox = mailbox.PortableUnixMailbox(FILE)
   buff = StringIO.StringIO()
+  try:
+    maxcnt = int(FORM.getfirst('msg_cnt',str(VIEWSPAM_MAX)))
+  except:
+    maxcnt = VIEWSPAM_MAX
   cnt = 0
   for msg in mbox:
     cnt += 1
@@ -198,7 +202,7 @@ def DeleteSpam(remlist=None):
       if not message_id in remlist:
         writeMsg(msg,buff)
     elif FORM.getfirst(message_id,'') == '':
-      if cnt < VIEWSPAM_MAX:
+      if cnt <= maxcnt:
         msg['X-Dspam-Status'] = 'Keep' 
       writeMsg(msg,buff)
   FILE.close()
@@ -247,7 +251,6 @@ def ViewSpam():
   cnt = 0
   for msg in mbox:
     cnt += 1
-    if cnt > VIEWSPAM_MAX: break
     alert = False
     for h in msg.headers:
       for al in alerts:
@@ -298,13 +301,15 @@ def ViewSpam():
    </FONT>&nbsp;&nbsp;</TD>
 </TR>
 """ % heading)
+    if cnt >= VIEWSPAM_MAX: break
 
   buff.write("""
 </TABLE>
 <BR><INPUT TYPE=SUBMIT VALUE="Delete Checked">
 <! &nbsp;<INPUT TYPE=SUBMIT VALUE="Delete All" NAME=delete_all>
+<INPUT TYPE=HIDDEN VALUE="%d" NAME=msg_cnt>
 </FORM>
-""")
+""" % cnt)
   output({'MESSAGE': buff.getvalue()})
 
 def CountMsgs(fname):
