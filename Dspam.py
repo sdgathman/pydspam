@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.6  2003/09/01 18:59:48  stuart
+# Add convert_eol function.
+#
 # Revision 2.5  2003/09/01 18:00:18  stuart
 # False positives needed dspam tagging.
 #
@@ -60,7 +63,9 @@ def _tag_part(msg,sigkey):
   recode = cte == 'base64'
   txt = msg.get_payload(decode=recode)
   if msg.get_main_type() == 'text':
-    if txt.strip().lower().endswith("</html"):
+    if not txt.endswith('\n'):
+      tag = '\n' + tag
+    if txt.rstrip().lower().endswith("</html"):
       tag = '>' + tag
   msg.set_payload(txt + tag)
   if recode:
