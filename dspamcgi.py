@@ -34,12 +34,12 @@ import md5
 CONFIG = {
   'USERDIR': "/etc/mail/dspam",
   'ME': "dspam.cgi",
-  'DOMAIN': "mydomain.com",
-  'DSPAM': "SMTP",	# send milter false positives via SMTP to ham@DOMAIN
-# 'DSPAM': "/usr/local/bin/falsepositive",	# run script for dspam FPs
+  'DOMAIN': "mail.bmsi.com",
+  'DSPAM': "SMTP",	# send false positives via SMTP to ham@DOMAIN
+# 'DSPAM': "/usr/local/bin/falsepositive",	# run script for FPs
   'LARGE_SCALE': 0
 }
-VIEWSPAM_MAX = 30
+VIEWSPAM_MAX = 200
 #
 ## End Configuration
 
@@ -74,6 +74,13 @@ def DoCommand():
   elif command == "ADD_ALERT": AddAlert()
   elif command == "DELETE_ALERT": DeleteAlert()
   else: error("Invalid Command: %s" % command)
+
+def getLastCount():
+  cnt = FORM.getfirst('last_count',None)
+  if cnt:
+    try: cnt = int(cnt)
+    except: cnt = None
+  return cnt
 
 def AddAlert():
   alert = FORM.getfirst('ALERT',"")
@@ -122,14 +129,20 @@ def messageID(msg):
     return m.hexdigest()
   return message_id.replace('"','').replace("'","").replace('\n','')
 
-def NotSpam():
-  message_id = FORM.getfirst('MESSAGE_ID',"")
-  if message_id == "":
-    error("No Message ID Specified")
+def NotSpam(multi=False):
+  if multi:
+    message_id = None
+  else:
+    message_id = FORM.getfirst('MESSAGE_ID',"")
+    if message_id == "":
+      error("No Message ID Specified")
   FILE = open(MAILBOX,'r')
   mbox = mailbox.PortableUnixMailbox(FILE)
+  cnt = 0
+  remlist = {}
   for msg in mbox:
-    if messageID(msg) == message_id:
+    mid = messageID(msg)
+    if mid == message_id or not message_id and FORM.getfirst(mid,'') == '':
       fpcmd = CONFIG['DSPAM']
       if fpcmd == 'SMTP':
 	domain = CONFIG['DOMAIN']
@@ -141,6 +154,7 @@ def NotSpam():
 	writeMsg(msg,buff)
 	try:
 	  server.sendmail(fromaddr, toaddrs, buff.getvalue())
+	  remlist[mid] = mid
 	except smtplib.SMTPResponseException,x:
           #error('%d: %s'%(x.smtp_code,x.smtp_error))
           error(x)
@@ -151,9 +165,10 @@ def NotSpam():
 	writeMsg(msg,PIPE)
 	rc = PIPE.close()
 	if rc: error(rc)
-      break
+      if not multi: break
   FILE.close()
-  DeleteSpam([message_id])
+  if multi: return remlist
+  DeleteSpam(remlist)
   print "Location: %s?COMMAND=VIEW_SPAM\n" % CONFIG['ME']
 
 def ViewOneSpam():
@@ -186,6 +201,8 @@ def DeleteSpam(remlist=None):
   if FORM.getfirst('delete_all',"") != "":
     # FIXME: dangerous, could lose messages added since mailbox read!
     open(MAILBOX,'w').close()
+  elif FORM.getfirst('notspam_all',"") != "":
+    remlist = NotSpam(multi=True)
   FILE = open(MAILBOX,'r')
   mbox = mailbox.PortableUnixMailbox(FILE)
   buff = StringIO.StringIO()
@@ -194,6 +211,7 @@ def DeleteSpam(remlist=None):
   except:
     maxcnt = VIEWSPAM_MAX
   cnt = 0
+  msgcnt = 0
   for msg in mbox:
     cnt += 1
     message_id = messageID(msg)
@@ -201,15 +219,17 @@ def DeleteSpam(remlist=None):
     if remlist:
       if not message_id in remlist:
         writeMsg(msg,buff)
+	msgcnt += 1
     elif FORM.getfirst(message_id,'') == '':
       if cnt <= maxcnt:
         msg['X-Dspam-Status'] = 'Keep' 
       writeMsg(msg,buff)
+      msgcnt += 1
   FILE.close()
   FILE = open(MAILBOX,'w')
   FILE.write(buff.getvalue())
   FILE.close()
-  print "Location: %s?COMMAND=VIEW_SPAM\n" % CONFIG['ME']
+  print "Location: %s?COMMAND=VIEW_SPAM&last_count=%d\n"%(CONFIG['ME'],msgcnt)
 
 def trimString(s,maxlen):
   if len(s) <= maxlen:
@@ -233,7 +253,7 @@ def ViewSpam():
   buff = StringIO.StringIO()
   buff.write("""
 <FORM ACTION="%(ME)s" METHOD="POST">
-<InPUT TYPE=HIDDEN NAME=COMMAND VALUE=DELETE_SPAM>
+<INPUT TYPE=HIDDEN NAME=COMMAND VALUE=DELETE_SPAM>
 <B>SPAM Blackhole: Email Quarantine</B><BR>
 <A HREF="%(ME)s">Click Here to Return</A><BR>
 <BR>
@@ -303,13 +323,20 @@ def ViewSpam():
 """ % heading)
     if cnt >= VIEWSPAM_MAX: break
 
+  msgcnt = getLastCount()
+  if msgcnt:
+    shown = "%d of %d messages shown." % (cnt,msgcnt)
+  else:
+    shown = ""
   buff.write("""
 </TABLE>
 <BR><INPUT TYPE=SUBMIT VALUE="Delete Checked">
 <! &nbsp;<INPUT TYPE=SUBMIT VALUE="Delete All" NAME=delete_all>
+&nbsp;<INPUT TYPE=SUBMIT VALUE="Unchecked Not Spam" NAME=notspam_all>
 <INPUT TYPE=HIDDEN VALUE="%d" NAME=msg_cnt>
+%s
 </FORM>
-""" % cnt)
+""" % (cnt,shown))
   output({'MESSAGE': buff.getvalue()})
 
 def CountMsgs(fname):
@@ -359,7 +386,8 @@ def Welcome():
 
   if f > 0:
     supp = """You have Quarantined Mail
-      (<A HREF="%s?COMMAND=VIEW_SPAM">%d messages</A>)""" % (CONFIG['ME'],f)
+      (<A HREF="%s?COMMAND=VIEW_SPAM&last_count=%d">%d messages</A>)""" % (
+      	CONFIG['ME'],f,f)
   else:
     supp = "Your Quarantine is empty (%d messages)" % f
 
