@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.9  2003/09/06 05:17:35  stuart
+# Update text format stats used by CGI script.
+#
 # Revision 2.8  2003/09/06 05:05:22  stuart
 # Modify API to:
 # o record recipients in quarantine
@@ -169,6 +172,8 @@ class DSpamDirectory(object):
     try:
       txt = convert_eol(txt)
       ds.process(txt)
+      self.totals = ds.totals
+      self.probability = ds.probability
       try: print >>open(self.dspam_stats,'w'),"%d,%d,%d,%d" % ds.totals
       except: pass
 
@@ -182,8 +187,9 @@ class DSpamDirectory(object):
 
 	# quarantine mail if dspam thinks it looks spammy
 	if ds.result == dspam.DSR_ISSPAM:
+	  del msg['X-Dspam-Recipients']
 	  if recipients:
-	    msg['X-Originally-To'] = ', '.join(recipients)
+	    msg['X-Dspam-Recipients'] = ', '.join(recipients)
 	  txt = msg.as_string()
 	  fp = open(mbox,'a')
 	  if not txt.startswith('From '):
@@ -235,9 +241,11 @@ class DSpamDirectory(object):
 
   def add_spam(self,user,txt):
     "Report a message as spam."
+    self.probability = 1.0
     self._feedback(user,txt,dspam.DSM_ADDSPAM)
     return None
 
   def false_positive(self,user,txt):
     "Report a false positive, return message with tags removed."
+    self.probability = 0.0
     return self._feedback(user,txt,dspam.DSM_FALSEPOSITIVE)
