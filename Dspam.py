@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.11  2003/09/30 21:06:52  stuart
+# Use umask to create files with proper permissions.
+#
 # Revision 2.10  2003/09/06 07:09:38  stuart
 # Option to save recipients in quarantined message.
 #
@@ -170,7 +173,7 @@ class DSpamDirectory(object):
     dspam_dict,sigfile,mbox = self.user_files(user)
 
     opts = dspam.DSF_CHAINED|dspam.DSF_SIGNATURE|dspam.DSF_NOLOCK
-    savmask = os.umask(0664) # mail group must be able write dict and sig
+    savmask = os.umask(002) # mail group must be able write dict and sig
     try:
       ds = dspam.dspam(dspam_dict,dspam.DSM_PROCESS,opts)
       txt = convert_eol(txt)
@@ -216,7 +219,23 @@ class DSpamDirectory(object):
     opts = dspam.DSF_CHAINED|dspam.DSF_SIGNATURE|dspam.DSF_NOLOCK
     done = False
     ds = dspam.dspam(dspam_dict,op,opts)
-    ds.lock()
+    try:
+      ds.lock()
+    except:
+      # lock failed, queue for later
+      if not txt.startswith('From '):
+        txt = 'From %s %s\n' % (user,time.ctime()) + txt
+      if op == dspam.DSM_ADDSPAM:
+	log = os.path.join(self.userdir,user+'.spam')
+      else:
+	log = os.path.join(self.userdir,user+'.fp')
+      fp = open(log,'a')
+      fp.write(txt)
+      fp.close()
+      if op != dspam.DSM_ADDSPAM:
+        # strip tags before forwarding on to user
+	txt,tags = extract_signature_tags(txt)
+      return txt
     try:
       db = bsddb.btopen(sigfile,'c')
       try:
@@ -226,7 +245,11 @@ class DSpamDirectory(object):
 	    data = db[tag]
 	    sig = data[4:]	# discard timestamp
 	    rem = len(sig) % 8
-	    if rem > 0: sig = sig[:-rem]	# discard status
+	    if rem > 0: 
+	      status = sig[-rem:]
+	      sig = sig[:-rem]
+	    else:
+	      status = ''
 	    ds.process(sig)	# reverse stats
 	    del db[tag]
 	    done = True

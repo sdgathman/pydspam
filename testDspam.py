@@ -2,6 +2,7 @@ import unittest
 import os
 import os.path
 import Dspam
+import dspam
 import bsddb
 import mailbox
 from email.Parser import Parser
@@ -33,6 +34,22 @@ class pyDSpamTestCase(unittest.TestCase):
       os.path.join(userdir,'alb.sig'),
       os.path.join(userdir,'alb.mbox')
     ))
+
+  # Check fallback for lock-timeout during addspam or falsepositive
+  def testLock(self):
+    ds = self.ds
+    txt = open('test/samp1').read()	# innocent mail
+    ds.check_spam('tonto',txt)
+    txt = open('test/spam7').read()	# spam mail
+    txt = ds.check_spam('tonto',txt)
+    # OK, now lock the dict with another context
+    ds1 = dspam.dspam(ds.dspam_dict,dspam.DSM_PROCESS,0)
+    ds1.lock()
+    # and try to process addspam while locked
+    ds.add_spam('tonto',txt)
+    ds1.unlock()
+    # check that message got written to overflow
+
 
   def testProcess(self):
     ds = self.ds
