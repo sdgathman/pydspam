@@ -1,5 +1,7 @@
 Here is a history of user visible changes to pydspam:
 
+1.1.4	Screening feature
+	Improved error handling
 1.1.3	Innoculation feature
 	Add logging hook
 	Fix bug where DSPAM tags were not found in base64 encoded text

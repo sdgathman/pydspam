@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.16  2003/10/22 05:30:43  stuart
+# Support screening with classify flag to check_spam
+#
 # Revision 2.15  2003/10/22 01:55:10  stuart
 # Log and ignore innoculation errors.
 #
@@ -292,7 +295,7 @@ class DSpamDirectory(object):
     finally:
       ds.unlock()
     if not sig:	# no tags in sig database, use full text
-      self.log('No tags: Adding body text as spam corpus.')
+      self.log('No tags: Adding body text as corpus.')
       opts = dspam.DSF_CHAINED|dspam.DSF_CORPUS|dspam.DSF_IGNOREHEADER
       if op == dspam.DSM_ADDSPAM:
 	ds = dspam.dspam(dspam_dict,op,opts)
@@ -311,7 +314,7 @@ class DSpamDirectory(object):
 	  self.log('INNOC:',u)
 	  u_grp = self.get_group(u)
 	  u_dict = os.path.join(self.userdir,u_grp+'.dict')
-	  ds = dspam.dspam(u_dict,dspam.DSM_ADDSPAM,opts)
+	  ds = dspam.dspam(u_dict,op,opts)
 	  ds.process(sig)
       except Exception,x:
 	self.log('FAIL:',x)
