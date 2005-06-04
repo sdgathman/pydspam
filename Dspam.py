@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.21.2.6  2004/05/03 17:50:59  stuart
+# handle spaces in innoculation list
+#
 # Revision 2.21.2.5  2004/04/08 23:29:58  stuart
 # Handle tags within multiline HTML comment.
 #
@@ -147,19 +150,17 @@ def add_signature_tag(msg,sigkey,prob=None):
     # check whether any explicit html
     any_html = False
     for part in msg.walk():
-      if part.get_type() == 'text/html':
+      if not part.is_multipart() and part.get_type() == 'text/html':
 	any_html = True
 	break
     # add tag to first suitable text segment
-    done = False
     for part in msg.walk():
       if not part.is_multipart():
 	if part.get_type() == 'text/html' or not any_html and (
 	    part.get_main_type() == 'text' or not part.get_main_type()):
 	  _tag_part(part,sigkey)
-	  done = True
 	  break
-    if not done:
+    else:
       msg.epilogue = "\n\n<!DSPAM:%s>\n\n" % sigkey
 
 def extract_signature_tags(txt):
@@ -275,7 +276,6 @@ class DSpamDirectory(object):
 	  msg = mime.MimeMessage(StringIO.StringIO(txt))
 	  msg.headerchange = self.headerchange
 	  add_signature_tag(msg,sigkey,self.probability)
-
 	  # quarantine mail if dspam thinks it looks spammy
 	  if self.result == dspam.DSR_ISSPAM:
 	    del msg['X-Dspam-Recipients']
@@ -290,7 +290,7 @@ class DSpamDirectory(object):
 	    return None
 	  txt = msg.as_string()
 	except:
-	  if self.result == dspam.DSR_ISSPAM: raise
+	  if True or self.result == dspam.DSR_ISSPAM: raise
 
       finally:
 	dspam.file_unlock(dspam_dict)

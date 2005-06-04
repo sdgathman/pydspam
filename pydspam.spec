@@ -33,7 +33,7 @@ their mail client applications, other anti-spam tools, or similar projects.
 
 A python extension module provides access to the DSPAM core engine from
 python.  Additional DSPAM utilities written in python are provided.
-Install this if you wish to use DPSPAM from python.
+Install this if you wish to use DSPAM from python.
 
 %prep
 %setup -q

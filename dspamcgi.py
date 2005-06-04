@@ -423,10 +423,11 @@ def Welcome():
   spam = FILE.readline()
   FILE.close()
   spam,innocent,misses,fp = map(int,spam.split(','))
+  total = spam + innocent
 
   # Prepare Welcome Header
-  if spam + innocent > 0:
-    ratio = "%3.2f" % (spam*100.0/(spam+innocent))
+  if total > 0:
+    ratio = "%3.2f" % (spam*100.0/total)
   else:
     ratio = '0'
   spam -= misses
@@ -441,7 +442,7 @@ def Welcome():
   <TR><TD COLSPAN=2>It is <B>%(time)s</B></TD></TR>
   <TR><TD>DSPAM has caught </TD><TD><B>%(spam)s</B> spams</TD></TR>
   <TR><TD>...learned </TD><TD><B>%(misses)s</B> spams</TD></TR>
-  <TR><TD>...scanned </TD><TD><B>%(innocent)s</B> innocent emails</TD></TR>
+  <TR><TD>...scanned </TD><TD><B>%(total)s</B> total emails</TD></TR>
   <TR><TD>...with </TD><TD><B>%(fp)s</B> false positives</TD></TR>
   <TR><TD>Your SPAM Ratio is</TD><TD><B>%(ratio)s%%</B></TD></TR>
   </TABLE>
