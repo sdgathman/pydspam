@@ -1,5 +1,8 @@
-#!/usr/bin/env python2.3
+#!/usr/bin/env python2.4
 # $Log$
+# Revision 1.1.2.1  2004/03/29 22:47:17  stuart
+# Release 1.1.6
+#
 # Revision 2.6.4.1  2004/01/14 21:09:32  stuart
 # Postphone reprocessing if lock file is busy.
 #

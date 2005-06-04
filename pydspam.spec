@@ -1,5 +1,5 @@
 %ifos Linux
-%define python python2
+%define python python2.4
 %define cgibin /var/www/cgi-bin
 %define htmldir /var/www/html
 %else
@@ -10,7 +10,7 @@
 
 Summary: A Python wrapper for Dspam Bayesian spam filtering
 Name: pydspam
-Version: 1.1.7
+Version: 1.1.8
 Release: 1
 Copyright: GPL
 URL: http://www.bmsi.com/python/dspam.html
