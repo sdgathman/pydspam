@@ -135,7 +135,28 @@ class pyDSpamTestCase(unittest.TestCase):
     # haven't got stats right
     #self.failUnless(txt)
 
-def suite(): return unittest.makeSuite(pyDSpamTestCase,'test')
+import mime
+
+class tagTestCase(unittest.TestCase):
+
+  def testtag(self):
+    fp = file('test/spam2')
+    msg = mime.message_from_file(fp)
+    self.assertTrue(not msg.get_payload() is None)
+    sigkey = 'TESTING123'
+    Dspam.add_signature_tag(msg,sigkey,prob=0.99)
+    self.assertTrue(msg.ismodified())
+    txt,tags = Dspam.extract_signature_tags(msg.as_string())
+    self.assertEqual(len(tags),1)
+    self.assertEqual(sigkey,tags[0])
+
+def suite():
+  s1 = unittest.makeSuite(pyDSpamTestCase,'test')
+  s2 = unittest.makeSuite(tagTestCase,'test')
+  s = unittest.TestSuite()
+  s.addTest(s1)
+  s.addTest(s2)
+  return s
 
 if __name__ == '__main__':
   import sys

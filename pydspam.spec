@@ -17,7 +17,7 @@ URL: http://www.bmsi.com/python/dspam.html
 Group: Development/Libraries
 Source: http://bmsi.com/python/%{name}-%{version}.tar.gz
 Buildroot: /var/tmp/pydspam-root
-Requires: dspam == 2.6.5.2
+Requires: dspam == 2.6.5.2 %{python}
 BuildRequires: %{python}-devel dspam-devel == 2.6.5.2
 Obsoletes: dspam-python
 

@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.21.2.7  2005/06/04 17:35:03  stuart
+# Maintenance release 1.1.8
+#
 # Revision 2.21.2.6  2004/05/03 17:50:59  stuart
 # handle spaces in innoculation list
 #
@@ -130,11 +133,11 @@ def _tag_part(msg,sigkey):
   cte = msg.get('content-transfer-encoding', '').lower()
   recode = cte == 'base64'
   txt = msg.get_payload(decode=recode)
-  if msg.get_main_type() == 'text':
-    if not txt.endswith('\n'):
-      tag = '\n' + tag
-    if txt.rstrip().lower().endswith("</html"):
-      tag = '>' + tag
+  if msg.get_content_maintype() == 'text':
+      if not txt.endswith('\n'):
+	tag = '\n' + tag
+      if txt.rstrip().lower().endswith("</html"):
+	tag = '>' + tag
   msg.set_payload(txt + tag)
   if recode:
     del msg["content-transfer-encoding"]
@@ -150,14 +153,14 @@ def add_signature_tag(msg,sigkey,prob=None):
     # check whether any explicit html
     any_html = False
     for part in msg.walk():
-      if not part.is_multipart() and part.get_type() == 'text/html':
+      if not part.is_multipart() and part.get_content_type() == 'text/html':
 	any_html = True
 	break
     # add tag to first suitable text segment
     for part in msg.walk():
       if not part.is_multipart():
-	if part.get_type() == 'text/html' or not any_html and (
-	    part.get_main_type() == 'text' or not part.get_main_type()):
+	if part.get_content_type() == 'text/html' or not any_html and (
+	    part.get_content_maintype() == 'text' or not part.get_content_maintype()):
 	  _tag_part(part,sigkey)
 	  break
     else:
@@ -273,7 +276,7 @@ class DSpamDirectory(object):
 
 	try:
 	  # add signature key to message
-	  msg = mime.MimeMessage(StringIO.StringIO(txt))
+	  msg = mime.message_from_file(StringIO.StringIO(txt))
 	  msg.headerchange = self.headerchange
 	  add_signature_tag(msg,sigkey,self.probability)
 	  # quarantine mail if dspam thinks it looks spammy
