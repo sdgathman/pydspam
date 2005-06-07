@@ -11,7 +11,7 @@
 Summary: A Python wrapper for Dspam Bayesian spam filtering
 Name: pydspam
 Version: 1.1.8
-Release: 1
+Release: 2
 Copyright: GPL
 URL: http://www.bmsi.com/python/dspam.html
 Group: Development/Libraries
@@ -111,6 +111,8 @@ rm -rf $RPM_BUILD_ROOT
 %{cgibin}/pydspam.cgi
 
 %changelog
+* Thu Apr 08 2004 Stuart Gathman <stuart@bmsi.com> 1.1.8-2
+- Work with milter-0.8.0 and python-2.4
 * Thu Apr 08 2004 Stuart Gathman <stuart@bmsi.com> 1.1.7-1
 - dspamcgi.py: user and global configuration
 - Dspam.py: handle tags changed to multiline HTML comments
