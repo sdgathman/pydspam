@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.21.2.8  2005/06/06 15:43:28  stuart
+# More python2.4 updates.
+#
 # Revision 2.21.2.7  2005/06/04 17:35:03  stuart
 # Maintenance release 1.1.8
 #
@@ -182,7 +185,7 @@ def extract_signature_tags(txt):
     beg = nbeg + offset
     end = txt.find(endpat,beg)
     if end > beg and end - beg < 64:
-      tags.append(txt[beg:end])
+      tags.append(txt[beg:end].replace('=\r\n',''))
       beg -= offset
       txt = txt[:beg] + txt[end+len(endpat):]
   return (txt,tags)

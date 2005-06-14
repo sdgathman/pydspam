@@ -150,6 +150,21 @@ class tagTestCase(unittest.TestCase):
     self.assertEqual(len(tags),1)
     self.assertEqual(sigkey,tags[0])
 
+  # somehow, tags are getting split by =<NL>.  It might be possible
+  # that our _tag_part is doing it when recoding, but I can't come up
+  # with an example.  So I punted and tested that extraction can correct
+  # the problem in most cases by manually adding a split tag to the test msg.
+  def testquote(self):
+    fp = file('test/spam3')
+    msg = mime.message_from_file(fp)
+    sigkey = 'TESTING456AVERYLONGKEY'
+    Dspam.add_signature_tag(msg,sigkey,prob=0.99)
+    self.assertTrue(msg.ismodified())
+    txt,tags = Dspam.extract_signature_tags(msg.as_string())
+    self.assertEqual(len(tags),2)
+    self.assertEqual(sigkey,tags[1])
+    self.assertEqual('TESTING123LONGTAG',tags[0])
+
 def suite():
   s1 = unittest.makeSuite(pyDSpamTestCase,'test')
   s2 = unittest.makeSuite(tagTestCase,'test')
