@@ -29,7 +29,7 @@ ALT="Viewable With Any Browser" BORDER="0"></A>
   Stuart D. Gathman</a><br>
 This web page is written by Stuart D. Gathman<br>and<br>sponsored by
 <a href="http://www.bmsi.com">Business Management Systems, Inc.</a> <br>
-Last updated Apr 08, 2004</h4>
+Last updated Jun 08, 2005</h4>
 
 <a href="#download">Downloads</a>,<a href="#bugs">Bugs</a>,
 <a href="#triage">Header Triage</a>
@@ -47,7 +47,8 @@ or <a href="http://networkdweebs.com/">Network Dweebs</a>, except as
 enthusiastic users of their free product.  Dspam was chosen because
 it provides a library with a C API in addition to a complete MDA based
 spam filtering application.  Python applications use the C API through
-an extension module.
+an extension module.  Using a C library is faster than a pure Python
+bayesian filter.
 <p>
 What is DSPAM?  Here is an excerpt from
 the DSPAM project README:
@@ -147,6 +148,11 @@ in their group.
 
 <h2> <a name="download">Downloads</a> </h2>
 
+Source and binaries have been moved to the
+<a href="http://sourceforge.net/projects/pymilter/">Pymilter project</a>
+on <a href="http://sourceforge.net/">Sourceforge</a>.  Older binaries
+can still be found below.
+
 <h3> DSPAM RPMs </h3>
 
 RPMs for dspam have been moved to the <a
@@ -190,7 +196,10 @@ configuration to your domain at a minimum.
 
 <h3> pydspam Binary RPM </h3>
 
-Binary RPMs are compiled for python2.3.
+Binary RPMs are compiled for python2.3.  
+Goto the
+<a href="http://sourceforge.net/project/showfiles.php?group_id=139894">
+Sourceforge site</a> for pydspam-1.1.8 compiled for python2.4.
 
 <menu>
 <li> <a href="/linux/rh72/pydspam-1.1.7-1.i386.rpm">pydspam-1.1.7-1.i386.rpm</a>
