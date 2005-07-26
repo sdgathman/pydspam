@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.21.2.9  2005/06/14 15:00:06  customdesigned
+# Work around tags mangled by quoted printable.  Sourceforge bug 1220391
+#
 # Revision 2.21.2.8  2005/06/06 15:43:28  stuart
 # More python2.4 updates.
 #
@@ -105,7 +108,7 @@ import thread
 
 from email.Encoders import encode_base64, encode_quopri
 
-VERSION = "1.1.5"
+VERSION = "1.1.9"
 
 _seq_lock = thread.allocate_lock()
 _seq = 0
@@ -237,7 +240,7 @@ class DSpamDirectory(object):
 
 # check spaminess for a message
   def check_spam(self,user,txt,recipients = None,
-  	classify=False,quarantine=True):
+  	classify=False,quarantine=True,force_result=None):
     "Return tagged message, or None if message was quarantined."
 
     dspam_dict,sigfile,mbox = self.user_files(user)
@@ -269,6 +272,20 @@ class DSpamDirectory(object):
 	    sig = ds.signature
 	    ds = dspam.dspam(dspam_dict,dspam.DSM_ADDSPAM,opts)
 	    ds.process(sig) # force back to SPAM
+	elif force_result == dspam.DSR_ISSPAM:
+	  if ds.result != dspam.DSR_ISSPAM:
+	    ds = dspam.dspam(dspam_dict,dspam.DSM_ADDSPAM,opts)
+	    ds.process(sig) # force back to SPAM
+	    self.result = force_result
+	  self.innoc(user,[sig],force_result)
+	  if not quarantine: return None
+	elif force_result == dspam.DSR_ISINNOCENT:
+	  if ds.result != dspam.DSR_ISINNOCENT:
+	    ds = dspam.dspam(dspam_dict,dspam.DSM_FALSEPOSITIVE,opts)
+	    ds.process(sig) # force back to INNOCENT
+	  self.innoc(user,[sig],force_result)
+	  return None
+
 	self.totals = ds.totals
 	try: print >>open(self.dspam_stats,'w'),"%d,%d,%d,%d" % ds.totals
 	except: pass
@@ -370,6 +387,10 @@ class DSpamDirectory(object):
       ds.process(txt)
     self.totals = ds.totals
     # innoculate other users who requested it
+    self.innoc(user,sigs,op)
+    return txt
+
+  def innoc(self,user,sigs,op):
     if sigs:
       try:
 	innoc_file = os.path.join(self.userdir,'innoculation')
@@ -385,7 +406,6 @@ class DSpamDirectory(object):
       except Exception,x:
 	self.log('FAIL:',x)
         # not critical if innoculation fails, so keep going
-    return txt
 
   def add_spam(self,user,txt):
     "Report a message as spam."
