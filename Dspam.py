@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.21.2.10  2005/07/26 16:51:24  customdesigned
+# Forced result option for honeypot.
+#
 # Revision 2.21.2.9  2005/06/14 15:00:06  customdesigned
 # Work around tags mangled by quoted printable.  Sourceforge bug 1220391
 #
@@ -283,8 +286,8 @@ class DSpamDirectory(object):
 	  if ds.result != dspam.DSR_ISINNOCENT:
 	    ds = dspam.dspam(dspam_dict,dspam.DSM_FALSEPOSITIVE,opts)
 	    ds.process(sig) # force back to INNOCENT
+	    self.result = force_result
 	  self.innoc(user,[sig],force_result)
-	  return None
 
 	self.totals = ds.totals
 	try: print >>open(self.dspam_stats,'w'),"%d,%d,%d,%d" % ds.totals
