@@ -265,7 +265,7 @@ def trimString(s,maxlen):
 def getAlerts():
   try:
     FILE = open(USER+".alerts",'r')
-    alerts = FILE.read().splitlines()
+    alerts = FILE.read().lower().splitlines()
     FILE.close()
   except IOError:
     alerts = []
@@ -291,8 +291,9 @@ def ViewSpam():
   for msg in mbox:
     cnt += 1
     for h in msg.headers:
+      hl = h.lower()
       for al in alerts:
-        if h.find(al) > 0:
+        if hl.find(al) > 0:
 	  alert = True
 	  break
       else:
