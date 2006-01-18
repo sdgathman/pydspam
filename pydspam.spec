@@ -16,7 +16,7 @@ Copyright: GPL
 URL: http://www.bmsi.com/python/dspam.html
 Group: Development/Libraries
 Source: http://bmsi.com/python/%{name}-%{version}.tar.gz
-Patch: pydspam.patch
+#Patch: pydspam.patch
 Buildroot: /var/tmp/pydspam-root
 Requires: dspam == 2.6.5.2 %{python}
 BuildRequires: %{python}-devel dspam-devel == 2.6.5.2
@@ -38,7 +38,7 @@ Install this if you wish to use DSPAM from python.
 
 %prep
 %setup -q
-%patch -p0 -b .bms
+#%patch -p0 -b .bms
 
 %build
 env CFLAGS="$RPM_OPT_FLAGS" %{python} setup.py build
