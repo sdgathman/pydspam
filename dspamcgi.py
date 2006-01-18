@@ -17,7 +17,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
-from time import ctime
+from time import ctime,sleep
 import sys
 import StringIO
 import os
@@ -31,6 +31,7 @@ import md5
 from email.Header import decode_header
 try: from ConfigParser import SafeConfigParser as ConfigParser
 except: from ConfigParser import ConfigParser
+
 
 ## Configuration
 #
@@ -56,6 +57,63 @@ VIEWSPAM_SORT = True
 config = ConfigParser(CONFIG)
 config.add_section('dspam')
 config.add_section('cgi')
+
+class PLock(object):
+  def __init__(self,basename):
+    self.basename = basename
+    self.fp = None
+
+  def lock(self,lockname=None):
+    "Start an update transaction.  Return FILE to write new version."
+    self.unlock()
+    if not lockname:
+      lockname = self.basename + '.lock'
+    self.lockname = lockname
+    st = os.stat(self.basename)
+    u = os.umask(0002)
+    try:
+      fd = os.open(lockname,os.O_WRONLY+os.O_CREAT+os.O_EXCL,st.st_mode|0660)
+    finally:
+      os.umask(u)
+    self.fp = os.fdopen(fd,'w')
+    try:
+      os.chown(self.lockname,-1,st.st_gid)
+    except:
+      self.unlock()
+      raise
+    return self.fp
+
+  def wlock(self,lockname=None):
+    "Wait until lock is free, then start an update transaction."
+    while True:
+      try:
+        return self.lock(lockname)
+      except OSError:
+        sleep(2)
+
+  def commit(self,backname=None):
+    "Commit update transaction with optional backup file."
+    if not self.fp:
+      raise IOError,"File not locked"
+    self.fp.close()
+    self.fp = None
+    if backname:
+      try:
+	os.remove(backname)
+      except OSError:
+	os.rename(self.lockname,self.basename)
+	return
+      os.link(self.basename,backname)
+    os.rename(self.lockname,self.basename)
+
+  def unlock(self):
+    "Cancel update transaction."
+    if self.fp:
+      try:
+        self.fp.close()
+      except: pass
+      self.fp = None
+      os.remove(self.lockname)
 
 def DoCommand():
   global remote_user,FORM,MAILBOX,USER,VIEWSPAM_MAX,CONFIG,config,VIEWSPAM_SORT
@@ -218,41 +276,42 @@ def ViewOneSpam():
   output({ 'MESSAGE': message });
 
 def DeleteSpam(remlist=None):
+  lock = PLock(MAILBOX)
+  deleteAll = False
   if FORM.getfirst('delete_all',"") != "":
-    # FIXME: dangerous, could lose messages added since mailbox read!
-    open(MAILBOX,'w').close()
+    lock.wlock()
+    # FIXME: check for time,size change
+    lock.commit()
   elif FORM.getfirst('notspam_all',"") != "":
     remlist = NotSpam(multi=True)
-  FILE = open(MAILBOX,'r')
-  mbox = mailbox.PortableUnixMailbox(FILE)
-  buff = StringIO.StringIO()
+  buff = lock.wlock()
   try:
-    maxcnt = int(FORM.getfirst('msg_cnt',str(VIEWSPAM_MAX)))
-  except:
-    maxcnt = VIEWSPAM_MAX
-  cnt = 0
-  msgcnt = 0
-  for msg in mbox:
-    cnt += 1
-    message_id = messageID(msg)
-    # Mark message saved in case user saves it
-    if remlist:
-      if not message_id in remlist:
-        writeMsg(msg,buff)
+    FILE = open(MAILBOX,'r')
+    mbox = mailbox.PortableUnixMailbox(FILE)
+    try:
+      maxcnt = int(FORM.getfirst('msg_cnt',str(VIEWSPAM_MAX)))
+    except:
+      maxcnt = VIEWSPAM_MAX
+    cnt = 0
+    msgcnt = 0
+    for msg in mbox:
+      cnt += 1
+      message_id = messageID(msg)
+      # Mark message saved in case user saves it
+      if remlist:
+	if not message_id in remlist:
+	  writeMsg(msg,buff)
+	  msgcnt += 1
+      elif FORM.getfirst(message_id,'') == '':
+	if cnt <= maxcnt:
+	  msg['X-Dspam-Status'] = 'Keep' 
+	writeMsg(msg,buff)
 	msgcnt += 1
-    elif FORM.getfirst(message_id,'') == '':
-      if cnt <= maxcnt:
-        msg['X-Dspam-Status'] = 'Keep' 
-      writeMsg(msg,buff)
-      msgcnt += 1
-  FILE.close()
-  buff.seek(0)
-  FILE = open(MAILBOX,'w')
-  while True:
-    buf = buff.read(8*1024*1024)
-    if not buf: break
-    FILE.write(buf)
-  FILE.close()
+    FILE.close()
+    lock.commit()
+  except:
+    lock.unlock()
+    raise
   print "Location: %s?COMMAND=VIEW_SPAM&last_count=%d\n"%(CONFIG['me'],msgcnt)
 
 def trimString(s,maxlen):
