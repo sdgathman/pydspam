@@ -54,7 +54,7 @@ def load_stat(db,crc,totals):
 def analyzeMessage(ds,fp,headeronly=0,maxstat=15):
   msg = mime.MimeMessage(fp)
   for part in msg.walk():
-    if part.get_main_type() == 'text':
+    if part.get_content_maintype() == 'text':
       txt = part.get_payload(decode=True)
       #del msg["content-transfer-encoding"]
       msg.set_payload(txt)

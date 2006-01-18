@@ -10,12 +10,13 @@
 
 Summary: A Python wrapper for Dspam Bayesian spam filtering
 Name: pydspam
-Version: 1.1.9
+Version: 1.1.10
 Release: 1
 Copyright: GPL
 URL: http://www.bmsi.com/python/dspam.html
 Group: Development/Libraries
 Source: http://bmsi.com/python/%{name}-%{version}.tar.gz
+Patch: pydspam.patch
 Buildroot: /var/tmp/pydspam-root
 Requires: dspam == 2.6.5.2 %{python}
 BuildRequires: %{python}-devel dspam-devel == 2.6.5.2
@@ -37,6 +38,7 @@ Install this if you wish to use DSPAM from python.
 
 %prep
 %setup -q
+%patch -p0 -b .bms
 
 %build
 env CFLAGS="$RPM_OPT_FLAGS" %{python} setup.py build
@@ -111,6 +113,9 @@ rm -rf $RPM_BUILD_ROOT
 %{cgibin}/pydspam.cgi
 
 %changelog
+* Tue Jul 26 2005 Stuart Gathman <stuart@bmsi.com> 1.1.10-1
+- Use passwd style update transaction lockfile (CGI)
+- Case insensitive alerts (CGI)
 * Tue Jul 26 2005 Stuart Gathman <stuart@bmsi.com> 1.1.9-1
 - Forced result option for honeypot accounts
 * Thu Apr 08 2004 Stuart Gathman <stuart@bmsi.com> 1.1.8-2

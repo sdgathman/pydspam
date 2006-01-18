@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.21.2.11  2005/10/26 15:24:46  customdesigned
+# Return message when forcing INNOCENT result
+#
 # Revision 2.21.2.10  2005/07/26 16:51:24  customdesigned
 # Forced result option for honeypot.
 #
@@ -111,7 +114,7 @@ import thread
 
 from email.Encoders import encode_base64, encode_quopri
 
-VERSION = "1.1.9"
+VERSION = "1.1.9" # abi compatibility, not package version
 
 _seq_lock = thread.allocate_lock()
 _seq = 0
