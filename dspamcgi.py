@@ -115,8 +115,36 @@ class PLock(object):
       self.fp = None
       os.remove(self.lockname)
 
+def MailboxIdx(mb):
+  """Return mailbox rotation index for user.
+  >>> MailboxIdx('user.mbox')
+  ('user.mbox', 0)
+  >>> MailboxIdx('user.mbox.2')
+  ('user.mbox', 2)
+  """
+  base,idx = os.path.splitext(mb)
+  if idx == '.mbox': return mb,0
+  try:
+    return base,int(idx[1:])
+  except:
+    raise ValueError(mb)
+
+def MailboxFromIdx(mb,idx):
+  """Return mailbox rotation index for user.
+  >>> MailboxFromIdx('user.mbox',0)
+  'user.mbox'
+  >>> MailboxFromIdx('user.mbox',2)
+  'user.mbox.2'
+  """
+  if idx > 0:
+    return '%s.%d' % (mb,idx)
+  if idx < 0:
+    raise ValueError(idx)
+  return mb
+
 def DoCommand():
-  global remote_user,FORM,MAILBOX,USER,VIEWSPAM_MAX,CONFIG,config,VIEWSPAM_SORT
+  global remote_user,FORM,MAILBOX,USER,CONFIG,config
+  global VIEWSPAM_MAX,VIEWSPAM_SORT
   remote_user = os.environ.get('REMOTE_USER','')
   if remote_user == '':
     error("System Error. I was unable to determine what username you are.")
@@ -134,7 +162,6 @@ def DoCommand():
   config.read([USER + '.cfg'])
   CONFIG = dict(config.items('dspam'))
 
-  MAILBOX = USER + ".mbox"
   VIEWSPAM_MAX = config.getint('cgi','viewspam_max')
   VIEWSPAM_SORT = config.get('cgi','sort').lower().startswith('sub')
   
@@ -145,6 +172,19 @@ def DoCommand():
     CONFIG['sort'] = 'subject'
   CONFIG['viewspam_max'] = str(VIEWSPAM_MAX)
 
+  idx = FORM.getfirst('MBOX_IDX','')
+  if idx:
+    try:
+      CONFIG['mbox_idx'] = int(idx)
+    except: pass
+  if not CONFIG.has_key('mbox_idx'):
+   CONFIG['mbox_idx'] = 0
+  idx = CONFIG['mbox_idx']
+  if idx:
+    MAILBOX = '%s.mbox.%d' % (USER,idx)
+  else:
+    MAILBOX = USER + ".mbox"
+    
   command = FORM.getfirst('COMMAND',"")
   if command == "": Welcome()
   elif command == "VIEW_SPAM": ViewSpam()
@@ -154,6 +194,7 @@ def DoCommand():
   elif command == "ADD_ALERT": AddAlert()
   elif command == "DELETE_ALERT": DeleteAlert()
   elif command == "SORT_SPAM": SortSpam()
+  elif command == "CHANGE_MBOX": ChangeMbox()
   else: error("Invalid Command: %s" % command)
 
 def getLastCount():
@@ -246,7 +287,7 @@ def NotSpam(multi=False):
   FILE.close()
   if multi: return remlist
   DeleteSpam(remlist)
-  print "Location: %s?COMMAND=VIEW_SPAM\n" % CONFIG['me']
+  print "Location: %(me)s?COMMAND=VIEW_SPAM&MBOX_IDX=%(mbox_idx)d\n" % CONFIG
   return None
 
 def ViewOneSpam():
@@ -260,13 +301,14 @@ def ViewOneSpam():
 <FORM ACTION="%s">
 <INPUT TYPE=HIDDEN NAME=MESSAGE_ID VALUE="%s">
 <INPUT TYPE=HIDDEN NAME=COMMAND VALUE="NOTSPAM">
+<INPUT TYPE=HIDDEN NAME=MBOX_IDX VALUE="%d">
 <CENTER>
 <INPUT TYPE=SUBMIT VALUE="THIS IS NOT SPAM!">
 </CENTER>
 </FORM>
 <BR>
 <PRE>
-""" % (CONFIG['me'],message_id)
+""" % (CONFIG['me'],message_id,CONFIG['mbox_idx'])
   for msg in mbox:
     if messageID(msg) == message_id:
       buff = StringIO.StringIO()
@@ -274,6 +316,19 @@ def ViewOneSpam():
       message += cgi.escape(buff.getvalue(),quote=True)
   message += "</PRE>"
   output({ 'MESSAGE': message });
+
+def ChangeMbox():
+  global MAILBOX
+  base,idx = MailboxIdx(MAILBOX)
+  if FORM.getfirst('prev_mbox','') != '' and idx > 0:
+    idx -= 1
+  if FORM.getfirst('next_mbox','') != '':
+    idx += 1
+  mb = MailboxFromIdx(base,idx)
+  if os.path.isfile(mb):
+    CONFIG['mbox_idx'] = idx
+    MAILBOX = mb
+  ViewSpam()
 
 def DeleteSpam(remlist=None):
   lock = PLock(MAILBOX)
@@ -312,7 +367,8 @@ def DeleteSpam(remlist=None):
   except:
     lock.unlock()
     raise
-  print "Location: %s?COMMAND=VIEW_SPAM&last_count=%d\n"%(CONFIG['me'],msgcnt)
+  print "Location: %s?COMMAND=VIEW_SPAM&MBOX_IDX=%d&last_count=%d\n"%(
+	CONFIG['me'],CONFIG['mbox_idx'],msgcnt)
 
 def trimString(s,maxlen):
   if len(s) <= maxlen:
@@ -338,7 +394,7 @@ def SortSpam():
   config.set('cgi','viewspam_max',max)
   config.write(fp)
   fp.close()
-  print "Location: %s?COMMAND=VIEW_SPAM\n"%CONFIG['me']
+  print "Location: %(me)s?COMMAND=VIEW_SPAM&MBOX_IDX=%(mbox_idx)d\n"%CONFIG
   
 def ViewSpam():
   alerts = getAlerts()
@@ -389,7 +445,8 @@ def ViewSpam():
 
     PAIRS = {
       'MESSAGE_ID': heading['Message-ID'],
-      'COMMAND': "VIEW_ONE_SPAM"
+      'COMMAND': "VIEW_ONE_SPAM",
+      'MBOX_IDX': str(CONFIG['mbox_idx'])
     }
     heading['url'] = SafeVars(PAIRS)
     heading['alert'] = alert
@@ -410,6 +467,7 @@ def ViewSpam():
 <FORM ACTION="%(me)s" METHOD="POST">
 <INPUT TYPE=HIDDEN NAME=COMMAND VALUE=SORT_SPAM>
 <INPUT TYPE=HIDDEN NAME=ORDER VALUE="%(sort)s">
+<INPUT TYPE=HIDDEN NAME=MBOX_IDX VALUE="%(mbox_idx)d">
 <A HREF="%(me)s">Click Here to Return</A>
 &nbsp;<INPUT TYPE=SUBMIT VALUE="Sort by %(sort)s" NAME=sort_spam> showing
 <INPUT TYPE=TEXT NAME=VIEWMAX SIZE=4 VALUE="%(viewspam_max)s"> at a time.
@@ -417,6 +475,7 @@ def ViewSpam():
 <BR>
 <FORM ACTION="%(me)s" METHOD="POST">
 <INPUT TYPE=HIDDEN NAME=COMMAND VALUE=DELETE_SPAM>
+<INPUT TYPE=HIDDEN NAME=MBOX_IDX VALUE="%(mbox_idx)d">
 <TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
 <TR><TD BGCOLOR=#000000><FONT COLOR=#FFFFFF SIZE=-1><B>&nbsp;DEL&nbsp;</B></FONT>&nbsp;&nbsp;</TD>
     <TD BGCOLOR=#000000><FONT COLOR=#FFFFFF SIZE=-1><B>&nbsp;SENT&nbsp;</B></FONT>&nbsp;&nbsp;</TD>
@@ -452,6 +511,15 @@ def ViewSpam():
     shown = "%d of %d messages shown." % (cnt,msgcnt)
   else:
     shown = ""
+  base,idx = MailboxIdx(MAILBOX)
+  if idx:
+    prev = '&nbsp;<INPUT TYPE=SUBMIT VALUE="Previous Day" Name=prev_mbox>'
+  else:
+    prev = ''
+  if os.path.isfile(MailboxFromIdx(base,idx + 1)):
+    next = '&nbsp;<INPUT TYPE=SUBMIT VALUE="Next Day" Name=next_mbox>'
+  else:
+    next = ''
   buff.write("""
 </TABLE>
 <BR><INPUT TYPE=SUBMIT VALUE="Delete Checked">
@@ -460,7 +528,12 @@ def ViewSpam():
 <INPUT TYPE=HIDDEN VALUE="%d" NAME=msg_cnt>
 %s
 </FORM>
-""" % (cnt,shown))
+<FORM ACTION="%s" METHOD="POST">
+<INPUT TYPE=HIDDEN NAME=COMMAND VALUE=CHANGE_MBOX>
+<INPUT TYPE=HIDDEN NAME=MBOX_IDX VALUE="%d">
+%s %s
+</FORM>
+""" % (cnt,shown,CONFIG['me'],CONFIG['mbox_idx'],prev,next))
   output({'MESSAGE': buff.getvalue()})
 
 def CountMsgs(fname):

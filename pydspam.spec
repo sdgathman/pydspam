@@ -10,7 +10,7 @@
 
 Summary: A Python wrapper for Dspam Bayesian spam filtering
 Name: pydspam
-Version: 1.1.10
+Version: 1.1.11
 Release: 1
 Copyright: GPL
 URL: http://www.bmsi.com/python/dspam.html
@@ -99,6 +99,10 @@ cp -p dspam_anal.py $RPM_BUILD_ROOT/usr/local/bin/pydspam_anal
 cp -p dspam_corpus.py $RPM_BUILD_ROOT/usr/local/bin/pydspam_corpus
 cp -p pydspam_process.py $RPM_BUILD_ROOT/usr/local/sbin
 
+# install logrotate entry
+mkdir -p $RPM_BUILD_ROOT/etc/logrotate.d
+cp -p pydspam.logrotate $RPM_BUILD_ROOT/etc/logrotate.d/pydspam
+
 %clean
 rm -rf $RPM_BUILD_ROOT
 
@@ -107,12 +111,16 @@ rm -rf $RPM_BUILD_ROOT
 %doc NEWS dspam.html dspam_dump.py Notes*
 /etc/cron.hourly/dspam
 %config /etc/mail/dspam/dspam.cfg
+%config /etc/logrotate.d/pydspam
 %attr(0775,root,root)/usr/local/bin/*
 %attr(0775,root,root)/usr/local/sbin/*
 %attr(0755,dspam,dspam)%{htmldir}/dspam/dspamcgi.py
 %{cgibin}/pydspam.cgi
 
 %changelog
+* Tue Jul 26 2005 Stuart Gathman <stuart@bmsi.com> 1.1.11-1
+- Support quarantine rotation in dspamcgi.py
+- add logrotate for quarantines
 * Tue Jul 26 2005 Stuart Gathman <stuart@bmsi.com> 1.1.10-1
 - Use passwd style update transaction lockfile (CGI)
 - Case insensitive alerts (CGI)
