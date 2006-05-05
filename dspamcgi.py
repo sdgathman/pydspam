@@ -513,11 +513,11 @@ def ViewSpam():
     shown = ""
   base,idx = MailboxIdx(MAILBOX)
   if idx:
-    prev = '&nbsp;<INPUT TYPE=SUBMIT VALUE="Previous Day" Name=prev_mbox>'
+    prev = '&nbsp;<INPUT TYPE=SUBMIT VALUE="Next Day" Name=prev_mbox>'
   else:
     prev = ''
   if os.path.isfile(MailboxFromIdx(base,idx + 1)):
-    next = '&nbsp;<INPUT TYPE=SUBMIT VALUE="Next Day" Name=next_mbox>'
+    next = '&nbsp;<INPUT TYPE=SUBMIT VALUE="Previous Day" Name=next_mbox>'
   else:
     next = ''
   buff.write("""
