@@ -401,7 +401,12 @@ def ViewSpam():
   mbox = mailbox.PortableUnixMailbox(FILE)
   cnt = 0
   headinglist = []
+  t = None
   for msg in mbox:
+    if not cnt and msg.unixfrom:
+      try:
+	t = strptime(msg.unixfrom.split(None,2)[2].rstrip())
+      except: pass
     cnt += 1
     for h in msg.headers:
       hl = h.lower()
@@ -460,8 +465,12 @@ def ViewSpam():
     if cnt >= VIEWSPAM_MAX: break
 
   buff = StringIO.StringIO()
+  if t:
+    s = strftime('%b %d',t)
+    buff.write("<B>SPAM Blackhole: Email Quarantine for %s</B><BR>" % s)
+  else:
+    buff.write("<B>SPAM Blackhole: Email Quarantine</B><BR>")
   buff.write("""
-<B>SPAM Blackhole: Email Quarantine</B><BR>
 <FORM ACTION="%(me)s" METHOD="POST">
 <INPUT TYPE=HIDDEN NAME=COMMAND VALUE=SORT_SPAM>
 <INPUT TYPE=HIDDEN NAME=ORDER VALUE="%(sort)s">
