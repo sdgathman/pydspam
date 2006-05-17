@@ -17,7 +17,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
-from time import ctime,sleep
+from time import ctime,sleep,strptime,strftime,localtime
 import sys
 import StringIO
 import os
@@ -537,18 +537,44 @@ def ViewSpam():
   output({'MESSAGE': buff.getvalue()})
 
 def CountMsgs(fname):
-  "Quickly count messages in quarantine."  
+  "Quickly count messages in quarantine.  Return cnt,time of first message"
   # If memory use is a problem for huge quarantines, loop over an mbox
   # instead.
   cnt = 0
+  t = None
   try:
     FILE = open(fname,'r')
     for ln in FILE:
       if ln.startswith('From '):
-	  cnt += 1
+	if not cnt:
+	  t = strptime(ln.split(None,2)[2].rstrip())
+	cnt += 1
     FILE.close()
-  except IOError: pass
-  return cnt
+    if not t:
+      t = localtime(os.path.getmtime(fname))
+  except IOError: 
+    if not t:
+      t = localtime()
+  return cnt,t
+
+def QuarantineList(base):
+  "Return list of quarantines."
+  idx = 0
+  mb = MailboxFromIdx(base,idx)
+  ls = []
+  while os.path.isfile(mb) or not idx:
+    f,t = CountMsgs(mb)
+    s = strftime('%b %d',t)
+    if f > 0:
+      supp = """Quarantine for %s
+    (<A HREF="%s?COMMAND=VIEW_SPAM&MBOX_IDX=%d&last_count=%d">%d messages</A>)
+      """ % (s,CONFIG['me'],idx,f,f)
+    else:
+      supp = "Quarantine for %s is empty (%d messages)" % (s,f)
+    ls.append(supp)
+    idx += 1
+    mb = MailboxFromIdx(base,idx)
+  return ls
 
 def Welcome():
 
@@ -583,16 +609,8 @@ def Welcome():
 </TABLE>
 """ % locals()
 
-  supp = None
-  f = CountMsgs(MAILBOX)
-
-  if f > 0:
-    supp = """You have Quarantined Mail
-      (<A HREF="%s?COMMAND=VIEW_SPAM&last_count=%d">%d messages</A>)""" % (
-      	CONFIG['me'],f,f)
-  else:
-    supp = "Your Quarantine is empty (%d messages)" % f
-
+  supp = '<BR>\n'.join(QuarantineList(USER + ".mbox"))
+    
   message = """
 <B>My Quarantine</B><BR>
 %(supp)s<BR>
