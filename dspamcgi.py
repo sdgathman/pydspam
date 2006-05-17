@@ -287,8 +287,6 @@ def NotSpam(multi=False):
   FILE.close()
   if multi: return remlist
   DeleteSpam(remlist)
-  print "Location: %(me)s?COMMAND=VIEW_SPAM&MBOX_IDX=%(mbox_idx)d\n" % CONFIG
-  return None
 
 def ViewOneSpam():
   message_id = FORM.getfirst('MESSAGE_ID',"")
@@ -352,12 +350,12 @@ def DeleteSpam(remlist=None):
     for msg in mbox:
       cnt += 1
       message_id = messageID(msg)
-      # Mark message saved in case user saves it
       if remlist:
 	if not message_id in remlist:
 	  writeMsg(msg,buff)
 	  msgcnt += 1
       elif FORM.getfirst(message_id,'') == '':
+	# Mark message saved in case user saves it
 	if cnt <= maxcnt:
 	  msg['X-Dspam-Status'] = 'Keep' 
 	writeMsg(msg,buff)
@@ -634,7 +632,11 @@ def Welcome():
 <INPUT TYPE=HIDDEN NAME=COMMAND VALUE=ADD_ALERT>
 <INPUT NAME=ALERT> &nbsp;<INPUT TYPE=SUBMIT VALUE="Add Alert">
 </FORM>
-<BR><BR>
+""" % CONFIG
+  # FIXME: don't add when per user autotraining on.  Currently, 
+  # only honeypot has autotraining.
+  if remote_user != 'honeypot':
+    message += """<BR><BR>
 &nbsp;&nbsp;If you have encountered a SPAM that was not caught by DSPAM 
 please forward it to <A HREF="mailto:spam@%(domain)s">spam@%(domain)s</A>
 where it will be contextually analyzed by our software and added to your
