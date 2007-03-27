@@ -15,7 +15,7 @@ class DSpamTestCase(unittest.TestCase):
     ds = dspam(fname,DSM_PROCESS,DSF_CHAINED|DSF_CORPUS)
     for ham in hams:
       msg = open('test/'+ham).read()
-      msg = '\n'.join(msg.splitlines())
+      msg = '\n'.join(msg.splitlines()).replace('\0','')
       ds.process(msg)
     self.assertEqual(ds.totals,(0,len(hams),0,0))
     ds.destroy()
@@ -32,7 +32,7 @@ class DSpamTestCase(unittest.TestCase):
     except: pass
     ds = dspam(fname,DSM_PROCESS,DSF_CLASSIFY|DSF_CHAINED|DSF_SIGNATURE)
     msg = open('test/'+hams[0]).read()
-    msg = '\n'.join(msg.splitlines())
+    msg = '\n'.join(msg.splitlines()).replace('\0','')
     ds.process(msg)
     totals = ds.totals
     sig = ds.signature
@@ -78,7 +78,7 @@ class DSpamTestCase(unittest.TestCase):
       msglist = []
       for ham in hams:
 	msg = open('test/'+ham).read()
-	msg = '\n'.join(msg.splitlines())
+	msg = '\n'.join(msg.splitlines()).replace('\0','')
 	msglist.append(msg)
       for seq in xrange(count):
 	for msg in msglist:

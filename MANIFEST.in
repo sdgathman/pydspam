@@ -13,6 +13,10 @@ include dspamcgi.py
 include dspam.html
 include dspam.cfg
 include dspam.c
+include lock.py
+include setup.py
+include setup.cfg
+include *.logrotate
 include test/*
 include Notes*
 include NEWS
