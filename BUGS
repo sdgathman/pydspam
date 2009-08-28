@@ -1,5 +1,4 @@
 "Unchecked not spam" treats any new messages coming in since the
-page was refreshed as unchecked.  Since checkbox fields only report
-checked fields, there doesn't seem to be any way to fix this without
-changing the form.  Could provide some javascript with "select all"
-button, then use checked for both spam and not spam.
+page was refreshed as unchecked.  If mbox has been updated since
+refresh, refresh again and have user check new messages.  Or maybe
+there is a way to detect new messages in the CGI.

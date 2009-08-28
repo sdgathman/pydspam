@@ -1,5 +1,9 @@
 #
 # $Log$
+# Revision 2.21.2.12  2006/01/18 01:29:48  customdesigned
+# passwd style update transaction lockfile
+# case insensitive alerts
+#
 # Revision 2.21.2.11  2005/10/26 15:24:46  customdesigned
 # Return message when forcing INNOCENT result
 #
@@ -384,13 +388,20 @@ class DSpamDirectory(object):
       ds.unlock()
     if not sig:	# no tags in sig database, use full text
       self.log('No tags: Adding body text as corpus.')
-      opts = dspam.DSF_CHAINED|dspam.DSF_CORPUS|dspam.DSF_IGNOREHEADER
+      opts = dspam.DSF_CHAINED|dspam.DSF_CORPUS
       if op == dspam.DSM_ADDSPAM:
 	ds = dspam.dspam(dspam_dict,op,opts)
       else:
 	ds = dspam.dspam(dspam_dict,dspam.DSM_PROCESS,opts)
       txt = convert_eol(txt)
-      ds.process(txt)
+      msg = mime.message_from_file(StringIO.StringIO(txt))
+      del msg['Resent-Date']
+      del msg['Resent-From']
+      del msg['Resent-To']
+      del msg['Resent-Subject']
+      ds.process(msg.as_string())
+      sig = ds.signature
+      if sig: sigs.append(sig)
     self.totals = ds.totals
     # innoculate other users who requested it
     self.innoc(user,sigs,op)
