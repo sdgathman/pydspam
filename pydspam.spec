@@ -1,25 +1,20 @@
-%ifos Linux
-%define python python2.4
+%define python python2.6
+%define pythonbase python26
 %define cgibin /var/www/cgi-bin
 %define htmldir /var/www/html
-%else
-%define python python
-%define cgibin /usr/local/www/cgi-bin
-%define htmldir /Public
-%endif
 
 Summary: A Python wrapper for Dspam Bayesian spam filtering
 Name: pydspam
-Version: 1.1.11
-Release: 1.73
+Version: 1.1.12
+Release: 1.py26
 Copyright: GPL
 URL: http://www.bmsi.com/python/dspam.html
 Group: Development/Libraries
-Source: http://bmsi.com/python/%{name}-%{version}.tar.gz
+Source: http://bmsi.com/python/pydspam-%{version}.tar.gz
 #Patch: pydspam.patch
 Buildroot: /var/tmp/pydspam-root
-Requires: dspam == 2.6.5.2 %{python}
-BuildRequires: %{python}-devel dspam-devel == 2.6.5.2
+Requires: dspam == 2.6.5.2 %{pythonbase}
+BuildRequires: %{pythonbase}-devel dspam-devel == 2.6.5.2
 Obsoletes: dspam-python
 
 %description
@@ -37,7 +32,7 @@ python.  Additional DSPAM utilities written in python are provided.
 Install this if you wish to use DSPAM from python.
 
 %prep
-%setup -q
+%setup -q -n pydspam-%{version}
 #%patch -p0 -b .bms
 
 %build
@@ -66,21 +61,12 @@ CGIDIR="$RPM_BUILD_ROOT%{cgibin}"
 HTMLDIR="$RPM_BUILD_ROOT%{htmldir}"
 mkdir -p $HTMLDIR/dspam
 mkdir -p $CGIDIR
-%ifos aix4.1
-# No suexec on our AIX installs
-cat >$CGIDIR/pydspam.cgi <<'EOF'
-#!/bin/sh
-cd %{htmldir}/dspam
-exec /usr/local/bin/python dspamcgi.py
-EOF
-%else
 # Use suexec to run CGI
 cat >$CGIDIR/pydspam.cgi <<'EOF'
 #!/bin/sh
 cd %{htmldir}/dspam
 exec /usr/sbin/suexec dspam dspam dspamcgi.py
 EOF
-%endif
 cp -p dspamcgi.py $HTMLDIR/dspam
 chmod 0755 $HTMLDIR/dspam/dspamcgi.py $CGIDIR/pydspam.cgi
 
@@ -118,6 +104,9 @@ rm -rf $RPM_BUILD_ROOT
 %{cgibin}/pydspam.cgi
 
 %changelog
+* Sat Mar 05 2011 Stuart Gathman <stuart@bmsi.com> 1.1.12-1
+- Ignore Resent headers
+- Python 2.6 and python version specific packages
 * Tue Jul 26 2005 Stuart Gathman <stuart@bmsi.com> 1.1.11-1
 - Support quarantine rotation in dspamcgi.py
 - add logrotate for quarantines
