@@ -1,5 +1,8 @@
-#!/usr/bin/env python2.4
+#!/usr/bin/env python2.6
 # $Log$
+# Revision 1.1.2.2  2005/06/04 17:39:10  stuart
+# Release 1.1.8 for python2.4
+#
 # Revision 1.1.2.1  2004/03/29 22:47:17  stuart
 # Release 1.1.6
 #

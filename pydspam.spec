@@ -1,13 +1,13 @@
-%define python python2.6
+%define __python python2.6
 %define pythonbase python26
 %define cgibin /var/www/cgi-bin
 %define htmldir /var/www/html
 
 Summary: A Python wrapper for Dspam Bayesian spam filtering
-Name: pydspam
+Name: %{pythonbase}-pydspam
 Version: 1.1.12
-Release: 1.py26
-Copyright: GPL
+Release: 1%{dist}
+License: GPL
 URL: http://www.bmsi.com/python/dspam.html
 Group: Development/Libraries
 Source: http://bmsi.com/python/pydspam-%{version}.tar.gz
@@ -36,7 +36,7 @@ Install this if you wish to use DSPAM from python.
 #%patch -p0 -b .bms
 
 %build
-env CFLAGS="$RPM_OPT_FLAGS" %{python} setup.py build
+env CFLAGS="$RPM_OPT_FLAGS" %{__python} setup.py build
 
 %install
 rm -rf $RPM_BUILD_ROOT
@@ -71,7 +71,7 @@ cp -p dspamcgi.py $HTMLDIR/dspam
 chmod 0755 $HTMLDIR/dspam/dspamcgi.py $CGIDIR/pydspam.cgi
 
 # install python module
-%{python} setup.py install --root=$RPM_BUILD_ROOT --record=INSTALLED_FILES
+%{__python} setup.py install --root=$RPM_BUILD_ROOT --record=INSTALLED_FILES
 while read file; do
   case "$file" in
   *.so) strip $RPM_BUILD_ROOT$file;;
@@ -102,6 +102,9 @@ rm -rf $RPM_BUILD_ROOT
 %attr(0775,root,root)/usr/local/sbin/*
 %attr(0755,dspam,dspam)%{htmldir}/dspam/dspamcgi.py
 %{cgibin}/pydspam.cgi
+/usr/lib/%{__python}/site-packages/Dspam.pyo
+%{htmldir}/dspam/dspamcgi.pyc
+%{htmldir}/dspam/dspamcgi.pyo
 
 %changelog
 * Sat Mar 05 2011 Stuart Gathman <stuart@bmsi.com> 1.1.12-1
