@@ -27,7 +27,7 @@ import cgitb; cgitb.enable()
 import mailbox
 import re
 import smtplib
-import md5
+import hashlib
 from email.Header import decode_header
 try: from ConfigParser import SafeConfigParser as ConfigParser
 except: from ConfigParser import ConfigParser
@@ -243,7 +243,7 @@ def writeMsg(msg,fp):
 
 def messageID(msg):
   "Extract an ID suitable for selecting messages from a mailbox."
-  m = md5.new()
+  m = hashlib.md5()
   for h in msg.headers:
     m.update(h)
   return m.hexdigest()
