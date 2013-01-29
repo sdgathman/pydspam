@@ -1,5 +1,7 @@
 /var/lib/dspam/*.mbox {
   daily
   nocompress
+  rotate 10
   create 0660 dspam mail
+  nodateext
 }
