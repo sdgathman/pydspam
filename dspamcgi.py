@@ -351,9 +351,13 @@ def DeleteSpam(remlist=None):
       cnt += 1
       message_id = messageID(msg)
       if remlist:
-	if not message_id in remlist:
-	  writeMsg(msg,buff)
+	if message_id in remlist:
+          status = msg.getheader('X-Status','')
+          if not 'D' in status:
+            msg['X-Status'] = status + 'D'
+	else:
 	  msgcnt += 1
+        writeMsg(msg,buff)
       elif FORM.getfirst(message_id,'') == '':
 	# Mark message saved in case user saves it
 	if cnt <= maxcnt:
@@ -403,6 +407,7 @@ def ViewSpam():
   headinglist = []
   t = None
   for msg in mbox:
+    if 'D' in msg.getheader('X-Status',''): continue
     if not cnt and msg.unixfrom:
       try:
 	t = strptime(msg.unixfrom.split(None,2)[2].rstrip())
@@ -551,11 +556,21 @@ def CountMsgs(fname):
   t = None
   try:
     FILE = open(fname,'r')
+    eoh = True
     for ln in FILE:
       if ln.startswith('From '):
 	if not cnt:
 	  t = strptime(ln.split(None,2)[2].rstrip())
 	cnt += 1
+        eoh = False
+      elif not eoh:
+        # Don't count messages with 'D' in X-Status
+        if ln.startswith('X-Status: '):
+          if 'D' in ln:
+            cnt -= 1
+          eoh = True
+        elif ln == '\n':
+          eoh = True
     FILE.close()
     if not t:
       t = localtime(os.path.getmtime(fname))
