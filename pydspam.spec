@@ -13,8 +13,8 @@ Group: Development/Libraries
 Source: http://bmsi.com/python/pydspam-%{version}.tar.gz
 #Patch: pydspam.patch
 Buildroot: /var/tmp/pydspam-root
-Requires: dspam == 2.6.5.2 %{pythonbase}
-BuildRequires: %{pythonbase}-devel dspam-devel == 2.6.5.2
+Requires: dspam %{pythonbase}
+BuildRequires: %{pythonbase}-devel dspam-devel
 Obsoletes: dspam-python
 
 %description

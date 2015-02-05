@@ -25,6 +25,9 @@
 
 /* 
  * $Log$
+ * Revision 2.12.2.1  2003/12/18 16:45:33  stuart
+ * Release 1.1.5 with its own RPM
+ *
  * Revision 2.12  2003/09/06 04:20:54  stuart
  * ctx->message is an INOUT parameter, so destroy after dspam_process
  *
@@ -60,10 +63,10 @@
  *
  */
 
-#include <pthread.h>
+//#include <pthread.h>
 #include <Python.h>
 #include <structmember.h>
-#include <libdspam.h>
+#include <dspam/libdspam.h>
 
 /* These functions are not exported, but are necessary to replicate
  * the functionality of dspam. */
@@ -79,6 +82,8 @@ staticforward PyTypeObject dspam_Type;
 typedef struct {
   PyObject_HEAD
   DSPAM_CTX *ctx;	/* Dspam dictionary handle */
+  int mode;
+  char *dictionary;
   PyObject *sig;
 } dspam_Object;
 
@@ -89,7 +94,8 @@ _dspam_dealloc(PyObject *s) {
   if (ctx)
     dspam_destroy(ctx);
   Py_XDECREF(self->sig);
-  PyObject_DEL(self);
+  PyMem_Del(self->dictionary);
+  PyObject_DEL(s);
 }
 
 static PyObject *
@@ -101,6 +107,8 @@ _dspam_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
   self = (dspam_Object *)type->tp_alloc(type,0);
   if (self != 0) {
     self->ctx = 0;
+    self->mode = 0;
+    self->dictionary = 0;
     self->sig = 0;
   }
   return (PyObject *)self;
@@ -109,19 +117,38 @@ _dspam_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
 static int
 _dspam_init(PyObject *dspam, PyObject *args, PyObject *kwds) {
   dspam_Object *self = (dspam_Object *)dspam;
-  static char *kwlist[] = {"name", "mode", "flags", 0};
-  const char *fname;
-  int mode;
+  static char *kwlist[] = {"name", "mode", "flags", "group", "home", 0};
+  const char *fname = 0;
   int flags = 0;
+  const char *group = 0;
+  const char *home = 0;
   if (self->ctx) {
     dspam_destroy(self->ctx);
     self->ctx = 0;
   }
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "si|i:dspam", kwlist,
-    &fname,&mode,&flags)) return -1;
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "si|iss:dspam", kwlist,
+    &fname,&self->mode,&flags,&group,&home)) return -1;
 
-  self->ctx = dspam_init(fname,mode,flags);
+  self->ctx = dspam_init(fname,group,home,self->mode,flags);
   if (self->ctx == 0) return -1;
+  int len = strlen(fname)+3;
+  if (home != 0)
+    len += strlen(home);
+  if (group != 0)
+    len += strlen(group);
+  self->dictionary = PyMem_New(char,len);
+  if (self->dictionary == 0) {
+    PyErr_NoMemory();
+    return -1;
+  }
+  self->dictionary[0] = 0;
+  if (home != 0)
+    strcat(self->dictionary,home);
+  strcat(self->dictionary,":");
+  if (group != 0)
+    strcat(self->dictionary,group);
+  strcat(self->dictionary,":");
+  strcat(self->dictionary,fname);
   return 0;
 }
 
@@ -142,7 +169,7 @@ _dspam_process(PyObject *dspamobj, PyObject *args) {
     PyErr_SetString(DspamError, "Uninitialized DSPAM context");
     return NULL;
   }
-  if (ctx->mode == DSM_PROCESS || !(ctx->flags & DSF_SIGNATURE)) {
+  if (self->mode == DSM_PROCESS || !(ctx->flags & DSF_SIGNATURE)) {
     if (!PyArg_ParseTuple(args, "s:process",&message)) return NULL;
   }
   else {
@@ -168,14 +195,14 @@ _dspam_process(PyObject *dspamobj, PyObject *args) {
     free(ctx->signature);
     ctx->signature = 0;
     if (buf == 0) len = 0;
-    if (ctx->mode == DSM_PROCESS) {
+    if (self->mode == DSM_PROCESS) {
       if (!self->sig || PySequence_Size(self->sig) != len) {
 	Py_XDECREF(self->sig);
 	self->sig = PyBuffer_New(len);
       }
       if (self->sig) {
 	void *data;
-	int dlen;
+	Py_ssize_t dlen;
 	if (!PyObject_AsWriteBuffer(self->sig,&data,&dlen))
 	  memcpy(data,buf,dlen);
 	else {
@@ -202,7 +229,7 @@ _dspam_process(PyObject *dspamobj, PyObject *args) {
   rc = ctx->result;
   if (rc != -1) {
     PyObject *e = Py_BuildValue("iss",
-	rc,db_strerror(rc),ctx->dictionary);
+	rc,strerror(rc),self->dictionary);
     if (e) PyErr_SetObject(DspamError, e);
     return NULL;
   }
@@ -211,24 +238,26 @@ _dspam_process(PyObject *dspamobj, PyObject *args) {
 }
 
 /* convert token dictionary to a Python dictionary */
-static PyObject *toDict(struct lht *freq) {
+static PyObject *toDict(ds_diction_t freq) {
   PyObject *dict = PyDict_New();
-  struct lht_node *node_lht;
-  struct lht_c c_lht;
-  if (dict == 0) return PyErr_NoMemory();
-  node_lht = c_lht_first(freq, &c_lht);
-  while (node_lht != NULL) {
+  if (dict == 0) return NULL;
+  ds_cursor_t cur = ds_diction_cursor(freq);
+  if (cur == 0) return PyErr_NoMemory();
+  ds_term_t node_lht = ds_diction_next(cur);
+  while (node_lht != 0) {
     PyObject *key = PyLong_FromUnsignedLongLong(node_lht->key);
     PyObject *tok = Py_BuildValue("(si)",
-	node_lht->token_name,node_lht->frequency);
+	node_lht->name,node_lht->frequency);
     if (!key || !tok || PyDict_SetItem(dict,key,tok)) {
       Py_XDECREF(key);
       Py_XDECREF(tok);
       Py_XDECREF(dict);
-      return NULL;
+      dict = NULL;
+      break;
     }
-    node_lht = c_lht_next(freq, &c_lht);
+    node_lht = ds_diction_next(cur);
   } 
+  ds_diction_close(cur);
   return dict;
 }
 
@@ -238,30 +267,38 @@ static char _dspam_tokenize__doc__[] =
   return a dictionary of token name and frequency by crc64 key.";
 
 static PyObject *
-_dspam_tokenize(PyObject *module, PyObject *args) {
-  char *header;
-  char *body;
+_dspam_tokenize(PyObject *dspamobj, PyObject *args) {
+  dspam_Object *self = (dspam_Object *)dspamobj;
+  char *header = 0;
+  char *body = 0;
   int chained = 1;
-  struct lht *freq;
-  PyObject *dict;
-  if (!PyArg_ParseTuple(args, "zz|i:tokenize",&header,&body)) return NULL;
+  int rc;
+  ds_diction_t freq;
+  PyObject *dict = 0;
+  if (!PyArg_ParseTuple(args, "zz|i:tokenize",&header,&body,&chained))
+  	return NULL;
   if (header == 0) header = " ";
   if (body == 0) body = " ";
   /* Tokenize scribbles on header and body text, so copy first. */
   header = strdup(header);
-  if (header == 0) return PyErr_NoMemory();
   body = strdup(body);
-  if (body == 0) {
+  freq = ds_diction_create(1000);
+  if (header == 0 || body == 0 || freq == 0) {
     free(header);
+    free(body);
+    ds_diction_destroy(freq);
     return PyErr_NoMemory();
   }
-  freq = _ds_tokenize(chained,header,body);
+
+  rc = _ds_tokenize(self->ctx,header,body,freq);
   free(header);
   free(body);
-  if (freq == 0) return PyErr_NoMemory();
   /* convert token dictionary to a Python dictionary */
-  dict = toDict(freq);
-  lht_destroy(freq);
+  if (rc)
+    PyErr_NoMemory();
+  else
+    dict = toDict(freq);
+  ds_diction_destroy(freq);
   return dict;
 }
 
@@ -364,7 +401,7 @@ _dspam_getprob(dspam_Object *self, void *closure) {
 static PyObject *
 _dspam_getdict(dspam_Object *self, void *closure) {
   DSPAM_CTX *ctx = self->ctx;
-  if (ctx) return Py_BuildValue("s",ctx->dictionary);
+  if (ctx) return Py_BuildValue("s",self->dictionary);
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -372,15 +409,20 @@ _dspam_getdict(dspam_Object *self, void *closure) {
 static PyObject *
 _dspam_gettot(dspam_Object *self, void *closure) {
   DSPAM_CTX *ctx = self->ctx;
-  if (ctx) return Py_BuildValue("(iiii)",
-      ctx->totals.total_spam,ctx->totals.total_innocent,
-      ctx->totals.spam_misses,ctx->totals.false_positives);
+  if (ctx) 
+    return Py_BuildValue("(iiiiiiii)",
+      ctx->totals.spam_learned,ctx->totals.innocent_learned,
+      ctx->totals.spam_misclassified,ctx->totals.innocent_misclassified,
+      ctx->totals.spam_corpusfed,ctx->totals.innocent_corpusfed,
+      ctx->totals.spam_classified,ctx->totals.innocent_classified
+    );
   Py_INCREF(Py_None);
   return Py_None;
 }
 
 static PyMethodDef dspamctx_methods[] = {
   { "process", _dspam_process, METH_VARARGS, _dspam_process__doc__},
+  { "tokenize", _dspam_tokenize, METH_VARARGS, _dspam_tokenize__doc__},
   { "lock", _dspam_lock, METH_VARARGS, _dspam_lock__doc__},
   { "unlock", _dspam_unlock, METH_VARARGS, _dspam_unlock__doc__},
   { "destroy", _dspam_destroy, METH_VARARGS, _dspam_destroy__doc__},
@@ -402,7 +444,6 @@ static PyGetSetDef dspamctx_getsets[] = {
 };
 
 static PyMethodDef _dspam_methods[] = {
-   { "tokenize", _dspam_tokenize, METH_VARARGS, _dspam_tokenize__doc__},
    { "file_lock",_dspam_file_lock,METH_VARARGS,_dspam_file_lock__doc__},
    { "file_unlock",_dspam_file_unlock,METH_VARARGS,_dspam_file_unlock__doc__},
    { NULL, NULL }
@@ -470,14 +511,21 @@ initdspam(void) {
    if (PyDict_SetItemString(d,"init", (PyObject *)&dspam_Type)) return;
 #define CONST(n) PyModule_AddIntConstant(m,#n, n)
 /* DSPAM Flags */
-   CONST(DSF_CHAINED); CONST(DSF_SIGNATURE);
-   CONST(DSF_NOLOCK); CONST(DSF_COPYBACK);
-   CONST(DSF_IGNOREHEADER); CONST(DSF_CORPUS);
-#ifdef DSF_CLASSIFY
-   CONST(DSF_CLASSIFY);
-#endif
+   CONST(DSF_UNLEARN);
+   CONST(DSF_BIAS);
+   CONST(DSF_SIGNATURE);
+   CONST(DSF_NOISE);
+   CONST(DSF_WHITELIST);
+   CONST(DSF_MERGED);
+
 /* DSPAM Processor modes */
-   CONST(DSM_PROCESS); CONST(DSM_ADDSPAM); CONST(DSM_FALSEPOSITIVE);
+   CONST(DSM_PROCESS);
+   CONST(DSM_CLASSIFY);
+   CONST(DSM_TOOLS);
 /* DSPAM Results */
-   CONST(DSR_ISSPAM); CONST(DSR_ISINNOCENT);
+   CONST(DSR_ISSPAM);
+   CONST(DSR_ISINNOCENT);
+#ifdef DSR_ISWHITELISTED
+   CONST(DSR_ISWHITELISTED);
+#endif
 }

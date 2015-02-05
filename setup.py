@@ -17,8 +17,7 @@ signature database and quarantine mbox in a user directory.
 	py_modules=["Dspam"],
 	ext_modules=[
 	  Extension("dspam", ["dspam.c"],
-	    extra_objects=["/usr/local/lib/libdspam.a"],
-	    libraries=["db"]
+	    libraries=["dspam"]
 	  )
 	],
 	classifiers = [
