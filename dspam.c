@@ -25,6 +25,9 @@
 
 /* 
  * $Log$
+ * Revision 2.12.2.1.2.1  2015/02/05 23:42:40  customdesigned
+ * New libdspam API builds.
+ *
  * Revision 2.12.2.1  2003/12/18 16:45:33  stuart
  * Release 1.1.5 with its own RPM
  *
@@ -70,10 +73,6 @@
 
 /* These functions are not exported, but are necessary to replicate
  * the functionality of dspam. */
-int _ds_context_lock(DSPAM_CTX *);
-int _ds_context_unlock(DSPAM_CTX *);
-int _ds_file_lock(const char *);
-int _ds_file_unlock(const char *);
 
 static PyObject *DspamError;
 
@@ -83,7 +82,6 @@ typedef struct {
   PyObject_HEAD
   DSPAM_CTX *ctx;	/* Dspam dictionary handle */
   int mode;
-  char *dictionary;
   PyObject *sig;
 } dspam_Object;
 
@@ -94,8 +92,8 @@ _dspam_dealloc(PyObject *s) {
   if (ctx)
     dspam_destroy(ctx);
   Py_XDECREF(self->sig);
-  PyMem_Del(self->dictionary);
-  PyObject_DEL(s);
+  //PyObject_DEL(s);
+  self->ob_type->tp_free((PyObject*)self);
 }
 
 static PyObject *
@@ -108,7 +106,6 @@ _dspam_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
   if (self != 0) {
     self->ctx = 0;
     self->mode = 0;
-    self->dictionary = 0;
     self->sig = 0;
   }
   return (PyObject *)self;
@@ -118,7 +115,7 @@ static int
 _dspam_init(PyObject *dspam, PyObject *args, PyObject *kwds) {
   dspam_Object *self = (dspam_Object *)dspam;
   static char *kwlist[] = {"name", "mode", "flags", "group", "home", 0};
-  const char *fname = 0;
+  const char *username = 0;
   int flags = 0;
   const char *group = 0;
   const char *home = 0;
@@ -127,28 +124,12 @@ _dspam_init(PyObject *dspam, PyObject *args, PyObject *kwds) {
     self->ctx = 0;
   }
   if (!PyArg_ParseTupleAndKeywords(args, kwds, "si|iss:dspam", kwlist,
-    &fname,&self->mode,&flags,&group,&home)) return -1;
-
-  self->ctx = dspam_init(fname,group,home,self->mode,flags);
-  if (self->ctx == 0) return -1;
-  int len = strlen(fname)+3;
-  if (home != 0)
-    len += strlen(home);
-  if (group != 0)
-    len += strlen(group);
-  self->dictionary = PyMem_New(char,len);
-  if (self->dictionary == 0) {
-    PyErr_NoMemory();
+    &username,&self->mode,&flags,&group,&home)) return -1;
+  self->ctx = dspam_create(username,group,home,self->mode,flags);
+  if (self->ctx == 0) {
+    PyErr_SetString(DspamError, "Context init failed");
     return -1;
   }
-  self->dictionary[0] = 0;
-  if (home != 0)
-    strcat(self->dictionary,home);
-  strcat(self->dictionary,":");
-  if (group != 0)
-    strcat(self->dictionary,group);
-  strcat(self->dictionary,":");
-  strcat(self->dictionary,fname);
   return 0;
 }
 
@@ -229,7 +210,7 @@ _dspam_process(PyObject *dspamobj, PyObject *args) {
   rc = ctx->result;
   if (rc != -1) {
     PyObject *e = Py_BuildValue("iss",
-	rc,strerror(rc),self->dictionary);
+	rc,strerror(rc),ctx->username);
     if (e) PyErr_SetObject(DspamError, e);
     return NULL;
   }
@@ -302,69 +283,6 @@ _dspam_tokenize(PyObject *dspamobj, PyObject *args) {
   return dict;
 }
 
-static char _dspam_lock__doc__[] =
-"lock() -> None\n\
-  Lock the DSPAM context.  When used with the DSF_NOLOCK flag\n\
-  allows the sig database and other data to be locked also.";
-
-static PyObject *
-_dspam_lock(PyObject *dspamctx, PyObject *args) {
-  dspam_Object *self = (dspam_Object *)dspamctx;
-  DSPAM_CTX *ctx = self->ctx;
-  if (!PyArg_ParseTuple(args, ":lock")) return NULL;
-  if (!ctx || _ds_context_lock(ctx)) {
-    PyErr_SetString(DspamError, "Lock failed");
-    return NULL;
-  }
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
-static char _dspam_unlock__doc__[] =
-"unlock() -> None\n\
-  Unlock the DSPAM context.";
-
-static PyObject *
-_dspam_unlock(PyObject *dspamctx, PyObject *args) {
-  dspam_Object *self = (dspam_Object *)dspamctx;
-  DSPAM_CTX *ctx = self->ctx;
-  if (!PyArg_ParseTuple(args, ":unlock")) return NULL;
-  if (ctx) _ds_context_unlock(ctx);
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
-static char _dspam_file_lock__doc__[] =
-"file_lock(filename) -> None\n\
-  Lock a file using the DSPAM locking protocol.\n\
-  When used with the DSF_NOLOCK flag\n\
-  allows the sig database and other data to be locked also.";
-
-static PyObject *
-_dspam_file_lock(PyObject *module, PyObject *args) {
-  char *fname;
-  if (!PyArg_ParseTuple(args, "s:file_lock",&fname)) return NULL;
-  if (_ds_file_lock(fname)) {
-    PyErr_SetString(DspamError, "Lock failed");
-    return NULL;
-  }
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
-static char _dspam_file_unlock__doc__[] =
-"file_unlock(filename) -> None\n\
-  Unlock a file locked with file_lock().";
-
-static PyObject *
-_dspam_file_unlock(PyObject *module, PyObject *args) {
-  char *fname;
-  if (!PyArg_ParseTuple(args, "s:file_unlock",&fname)) return NULL;
-  _ds_file_unlock(fname);
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
 static char _dspam_destroy__doc__[] =
 "destroy() -> None\n\
   Release all resources for this DSPAM context.";
@@ -382,12 +300,130 @@ _dspam_destroy(PyObject *dspamctx, PyObject *args) {
   return Py_None;
 }
 
+static char _dspam_attach__doc__[] =
+"attach(dbh) -> None\n\
+  Attach storage interface to context.";
+
 static PyObject *
-_dspam_getresult(dspam_Object *self, void *closure) {
+_dspam_attach(PyObject *dspamctx, PyObject *args) {
+  dspam_Object *self = (dspam_Object *)dspamctx;
   DSPAM_CTX *ctx = self->ctx;
-  if (ctx) return Py_BuildValue("i",ctx->result);
+  PyObject *dbh = 0;
+  if (!PyArg_ParseTuple(args, "|O:attach",&dbh)) return NULL;
+  if (!ctx) {
+    PyErr_SetString(PyExc_TypeError, "Uninitialized DSPAM context");
+    return NULL;
+  }
+  if (dspam_attach(ctx,dbh)) {
+    PyErr_SetString(PyExc_TypeError, "Failed to attach storage");
+    return NULL;
+  }
   Py_INCREF(Py_None);
   return Py_None;
+}
+
+static PyObject *
+_generic_getstring(void *obj, int offset) {
+  if (obj) {
+    char **p = (char **)((void *)obj + offset);
+    return Py_BuildValue("s",*p);
+  }
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *
+_generic_getint(void *obj, int offset) {
+  if (obj) {
+    int *p = (int *)((void *)obj + offset);
+    return Py_BuildValue("i",*p);
+  }
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static int
+_generic_setint(void *obj, PyObject *value, const char *name, int offset) {
+  char buf[80];
+  int val;
+  if (obj == NULL) {
+    PyErr_SetString(PyExc_TypeError, "DSPAM context not active");
+    return -1;
+  }
+  if (value == NULL) {
+    sprintf(buf,"Cannot delete %s",name);
+    PyErr_SetString(PyExc_TypeError, buf);
+    return -1;
+  }
+  if (! PyInt_Check(value)) {
+    sprintf(buf,"%s must be an int",name);
+    PyErr_SetString(PyExc_TypeError, buf);
+    return -1;
+  }
+
+  val = (int)PyInt_AsLong(value);
+  if (PyErr_Occurred())
+    return -1;
+  else {
+    int *p = (int *)((void *)obj + offset);
+    *p = val;
+  }
+  return 0;
+}
+
+static PyObject *
+_dspam_getresult(dspam_Object *self, void *closure) {
+  return _generic_getint(self->ctx,offsetof(DSPAM_CTX,result));
+}
+
+static PyObject *
+_dspam_gettokenizer(dspam_Object *self, void *closure) {
+  return _generic_getint(self->ctx,offsetof(DSPAM_CTX,tokenizer));
+}
+
+static int
+_dspam_settokenizer(dspam_Object *self, PyObject *value, void *closure) {
+  return _generic_setint(self->ctx,value,"tokenizer",offsetof(DSPAM_CTX,tokenizer));
+}
+
+static PyObject *
+_dspam_getsource(dspam_Object *self, void *closure) {
+  return _generic_getint(self->ctx,offsetof(DSPAM_CTX,source));
+}
+
+static int
+_dspam_setsource(dspam_Object *self, PyObject *value, void *closure) {
+  return _generic_setint(self->ctx,value,"source",offsetof(DSPAM_CTX,source));
+}
+
+static PyObject *
+_dspam_getalgorithms(dspam_Object *self, void *closure) {
+  return _generic_getint(self->ctx,offsetof(DSPAM_CTX,algorithms));
+}
+
+static int
+_dspam_setalgorithms(dspam_Object *self, PyObject *value, void *closure) {
+  return _generic_setint(self->ctx,value,"algorithms",offsetof(DSPAM_CTX,algorithms));
+}
+
+static PyObject *
+_dspam_getclassification(dspam_Object *self, void *closure) {
+  return _generic_getint(self->ctx,offsetof(DSPAM_CTX,classification));
+}
+
+static int
+_dspam_setclassification(dspam_Object *self, PyObject *value, void *closure) {
+  return _generic_setint(self->ctx,value,"classification",offsetof(DSPAM_CTX,classification));
+}
+
+static PyObject *
+_dspam_gettraining_mode(dspam_Object *self, void *closure) {
+  return _generic_getint(self->ctx,offsetof(DSPAM_CTX,training_mode));
+}
+
+static int
+_dspam_settraining_mode(dspam_Object *self, PyObject *value, void *closure) {
+  return _generic_setint(self->ctx,value,"training_mode",offsetof(DSPAM_CTX,training_mode));
 }
 
 static PyObject *
@@ -399,11 +435,18 @@ _dspam_getprob(dspam_Object *self, void *closure) {
 }
 
 static PyObject *
-_dspam_getdict(dspam_Object *self, void *closure) {
-  DSPAM_CTX *ctx = self->ctx;
-  if (ctx) return Py_BuildValue("s",self->dictionary);
-  Py_INCREF(Py_None);
-  return Py_None;
+_dspam_getusername(dspam_Object *self, void *closure) {
+  return _generic_getstring(self->ctx,offsetof(DSPAM_CTX,username));
+}
+
+static PyObject *
+_dspam_getgroup(dspam_Object *self, void *closure) {
+  return _generic_getstring(self->ctx,offsetof(DSPAM_CTX,group));
+}
+
+static PyObject *
+_dspam_gethome(dspam_Object *self, void *closure) {
+  return _generic_getstring(self->ctx,offsetof(DSPAM_CTX,home));
 }
 
 static PyObject *
@@ -421,10 +464,9 @@ _dspam_gettot(dspam_Object *self, void *closure) {
 }
 
 static PyMethodDef dspamctx_methods[] = {
+  { "attach", _dspam_attach, METH_VARARGS, _dspam_attach__doc__},
   { "process", _dspam_process, METH_VARARGS, _dspam_process__doc__},
   { "tokenize", _dspam_tokenize, METH_VARARGS, _dspam_tokenize__doc__},
-  { "lock", _dspam_lock, METH_VARARGS, _dspam_lock__doc__},
-  { "unlock", _dspam_unlock, METH_VARARGS, _dspam_unlock__doc__},
   { "destroy", _dspam_destroy, METH_VARARGS, _dspam_destroy__doc__},
   { NULL, NULL }
 };
@@ -436,26 +478,100 @@ static PyMemberDef dspamctx_members[] = {
 };
 
 static PyGetSetDef dspamctx_getsets[] = {
-  { "result", (getter)_dspam_getresult, NULL, "Result of processing" },
+  { "result",(getter)_dspam_getresult,NULL, "Result of processing: DSR_*" },
+  { "tokenizer",(getter)_dspam_gettokenizer,(setter)_dspam_settokenizer,
+  	"Tokenizer algorithm: DSZ_*" },
+  { "source",(getter)_dspam_getsource,(setter)_dspam_setsource,
+  	"Source of classification: DSS_*" },
+  { "classification",
+  	(getter)_dspam_getclassification,(setter)_dspam_setclassification,
+  	"Classification: DSR_*" },
+  { "algorithms",
+  	(getter)_dspam_getalgorithms,(setter)_dspam_setalgorithms,
+  	"Algorithms: DSA_*" },
+  { "training_mode",
+  	(getter)_dspam_gettraining_mode,(setter)_dspam_settraining_mode,
+  	"Training Mode: DST_*" },
   { "probability", (getter)_dspam_getprob, NULL, "Probability of SPAM" },
-  { "dictionary", (getter)_dspam_getdict, NULL, "Dictionary file name" },
+  { "username", (getter)_dspam_getusername, NULL, "User name" },
+  { "group", (getter)_dspam_getgroup, NULL, "Group name" },
+  { "home", (getter)_dspam_gethome, NULL, "DSPAM home" },
   { "totals", (getter)_dspam_gettot, NULL, "(SPAM,INNOCENT,MISS,FP)" },
   {NULL},
 };
 
+static char _dspam_init_driver__doc__[] =
+"init_driver() -> None\n\
+  Call once when your application starts.";
+
+static PyObject *
+_dspam_init_driver(PyObject *self, PyObject *args) {
+  PyObject *driver_ctx;
+  if (!PyArg_ParseTuple(args, "O:init_driver",&driver_ctx)) return NULL;
+  if (dspam_init_driver(NULL)) {
+    PyErr_SetString(DspamError, "Unable to initialize driver");
+    return NULL;
+  }
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static char _dspam_shutdown_driver__doc__[] =
+"init_driver() -> None\n\
+  Perform driver specific shutdown functions.";
+
+static PyObject *
+_dspam_shutdown_driver(PyObject *self, PyObject *args) {
+  PyObject *driver_ctx;
+  if (!PyArg_ParseTuple(args, "O:shutdown_driver",&driver_ctx)) return NULL;
+  dspam_init_driver(NULL);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static char _libdspam_init__doc__[] =
+"libdspam_init() -> None\n\
+  Call once when your application starts.";
+
+static PyObject *
+_libdspam_init(PyObject *self, PyObject *args) {
+  const char *driver;
+  if (!PyArg_ParseTuple(args, "s:init",&driver)) return NULL;
+  if (libdspam_init(driver)) {
+    PyErr_SetString(DspamError, "Unable to initialize libdspam");
+    return NULL;
+  }
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static char _libdspam_shutdown__doc__[] =
+"libdspam_shutdown() -> None\n\
+  Shutdown libdspam.";
+
+static PyObject *
+_libdspam_shutdown(PyObject *self, PyObject *args) {
+  if (!PyArg_ParseTuple(args, ":shutdown")) return NULL;
+  libdspam_shutdown();
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyMethodDef _dspam_methods[] = {
-   { "file_lock",_dspam_file_lock,METH_VARARGS,_dspam_file_lock__doc__},
-   { "file_unlock",_dspam_file_unlock,METH_VARARGS,_dspam_file_unlock__doc__},
-   { NULL, NULL }
+  { "libdspam_init",_libdspam_init, METH_VARARGS, _libdspam_init__doc__ },
+  { "libdspam_shutdown",_libdspam_shutdown, METH_VARARGS, _libdspam_shutdown__doc__ },
+  { "init_driver", _dspam_init_driver, METH_VARARGS, _dspam_init_driver__doc__},
+  { "shutdown_driver", _dspam_shutdown_driver, METH_VARARGS, _dspam_shutdown_driver__doc__},
+  { NULL, NULL }
 };
 
 static PyTypeObject dspam_Type = {
   PyObject_HEAD_INIT(&PyType_Type)
   0,
-  "dspam",
+  "dspam.ctx",
   sizeof(dspam_Object),
-  0,
-        _dspam_dealloc,            /* tp_dealloc */
+  	0,					/* itemsize */
+        (destructor)_dspam_dealloc,            /* tp_dealloc */
         0,               /* tp_print */
         0,           /* tp_getattr */
         0,			/* tp_setattr */
@@ -507,8 +623,7 @@ initdspam(void) {
    if (!DspamError) return;
    if (PyDict_SetItemString(d,"error", DspamError)) return;
    if (PyDict_SetItemString(d,"dspam", (PyObject *)&dspam_Type)) return;
-   /* init is a synonym for dspam type */
-   if (PyDict_SetItemString(d,"init", (PyObject *)&dspam_Type)) return;
+   if (PyDict_SetItemString(d,"ctx", (PyObject *)&dspam_Type)) return;
 #define CONST(n) PyModule_AddIntConstant(m,#n, n)
 /* DSPAM Flags */
    CONST(DSF_UNLEARN);
@@ -522,9 +637,33 @@ initdspam(void) {
    CONST(DSM_PROCESS);
    CONST(DSM_CLASSIFY);
    CONST(DSM_TOOLS);
-/* DSPAM Results */
+/* Classifications */
    CONST(DSR_ISSPAM);
    CONST(DSR_ISINNOCENT);
+   CONST(DSR_NONE);
+/* Source of Classification */
+   CONST(DSS_ERROR);	/* Misclassification by dspam */
+   CONST(DSS_CORPUS);	/* Corpus fed message */
+   CONST(DSS_INOCULATION); /* Message inoculation */
+   CONST(DSS_NONE);	/* No source - use only with DSR_NONE */
+/* Tokenizers */
+   CONST(DSZ_WORD);
+   CONST(DSZ_CHAIN);
+   CONST(DSZ_SBPH);
+   CONST(DSZ_OSB);
+/* Training Modes */
+   CONST(DST_TEFT);	/* Train on everything */
+   CONST(DST_TOE);	/* Train on error */
+   CONST(DST_TUM);	/* Train until mature */
+/* Algorithms */
+   CONST(DSA_GRAHAM);	/* Graham-Bayesian */
+   CONST(DSP_GRAHAM);	/* Graham-Bayesian */
+   CONST(DSA_BURTON);	/* Burton-Bayesian */
+   CONST(DSA_ROBINSON);	/* Robinson's Geometric Mean Test */
+   CONST(DSP_ROBINSON);	/* Robinson's Geometric Mean Test */
+   CONST(DSA_CHI_SQUARE); /* Fischer-Robinson's Chi-Square */
+   CONST(DSP_MARKOV);
+   CONST(DSA_NAIVE);	/* Naive Bayesian */
 #ifdef DSR_ISWHITELISTED
    CONST(DSR_ISWHITELISTED);
 #endif

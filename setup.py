@@ -1,7 +1,7 @@
 import os
 from distutils.core import setup, Extension
 
-setup(name = "pydspam", version = "1.1.11",
+setup(name = "pydspam", version = "1.3",
 	description="Python interface to libdspam",
 	long_description="""\
 This is a python extension module to enable python scripts to
@@ -21,7 +21,7 @@ signature database and quarantine mbox in a user directory.
 	  )
 	],
 	classifiers = [
-	  'Development Status :: 5 - Production/Stable',
+	  'Development Status :: 3 - Alpha',
 	  'Environment :: No Input/Output (Daemon)',
 	  'Intended Audience :: System Administrators',
 	  'License :: OSI Approved :: GNU General Public License (GPL)',

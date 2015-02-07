@@ -5,7 +5,7 @@
 
 Summary: A Python wrapper for Dspam Bayesian spam filtering
 Name: %{pythonbase}-pydspam
-Version: 1.1.12
+Version: 1.3
 Release: 1%{dist}
 License: GPL
 URL: http://www.bmsi.com/python/dspam.html
@@ -107,26 +107,36 @@ rm -rf $RPM_BUILD_ROOT
 %{htmldir}/dspam/dspamcgi.pyo
 
 %changelog
+* Thu Feb 05 2015 Stuart Gathman <stuart@bmsi.com> 1.3-1
+- New dspam-3.10 API
+
 * Sat Mar 05 2011 Stuart Gathman <stuart@bmsi.com> 1.1.12-1
 - Ignore Resent headers
 - Python 2.6 and python version specific packages
+
 * Tue Jul 26 2005 Stuart Gathman <stuart@bmsi.com> 1.1.11-1
 - Support quarantine rotation in dspamcgi.py
 - add logrotate for quarantines
+
 * Tue Jul 26 2005 Stuart Gathman <stuart@bmsi.com> 1.1.10-1
 - Use passwd style update transaction lockfile (CGI)
 - Case insensitive alerts (CGI)
+
 * Tue Jul 26 2005 Stuart Gathman <stuart@bmsi.com> 1.1.9-1
 - Forced result option for honeypot accounts
+
 * Thu Apr 08 2004 Stuart Gathman <stuart@bmsi.com> 1.1.8-2
 - Work with milter-0.8.0 and python-2.4
+
 * Thu Apr 08 2004 Stuart Gathman <stuart@bmsi.com> 1.1.7-1
 - dspamcgi.py: user and global configuration
 - Dspam.py: handle tags changed to multiline HTML comments
+
 * Fri Mar 12 2004 Stuart Gathman <stuart@bmsi.com> 1.1.6-1
 - dspamcgi.py: sort by subject, decode subjects, handle large quarantine
 - dspamcgi.py: handle missing alerts, quarantine
 - Dspam.py: fix hang, unlock in wrong finally
+
 * Thu Dec 18 2003 Stuart Gathman <stuart@bmsi.com> 1.1.5-1
 - pydspam-1.1.5
 - Move dspam-python to its own package

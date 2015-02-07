@@ -5,21 +5,32 @@ from dspam import *
 count = 20
 hams = ('samp1','amazon','test8')
 spams = ('honey','spam44','spam7','spam8','bounce')
-fname = 'test.dict'
+home = os.getcwd()+'/testdir'
+user = 'testuser'
+group = 'testgroup'
 
 class DSpamTestCase(unittest.TestCase):
 
-  def testCorpus(self):
-    try: os.unlink(fname)
+  def setUp(self):
+    try: os.makedirs(home)
     except: pass
-    ds = dspam(fname,DSM_PROCESS,DSF_CHAINED|DSF_CORPUS)
+
+  def tearDown(self):
+    pass
+
+  def testCorpus(self):
+    ds = dspam(user,DSM_PROCESS,0,group,home)
+    ds.source = DSS_CORPUS
+    ds.classification = DSR_ISINNOCENT
     for ham in hams:
       msg = open('test/'+ham).read()
       msg = '\n'.join(msg.splitlines()).replace('\0','')
       ds.process(msg)
     self.assertEqual(ds.totals,(0,len(hams),0,0))
     ds.destroy()
-    ds = dspam(fname,DSM_ADDSPAM,DSF_CHAINED|DSF_CORPUS)
+    ds = dspam(user,DSM_PROCESS,0,group,home)
+    ds.source = DSS_CORPUS
+    ds.classification = DSR_ISSPAM
     for spam in spams:
       msg = open('test/'+spam).read()
       msg = '\n'.join(msg.splitlines())
@@ -28,9 +39,7 @@ class DSpamTestCase(unittest.TestCase):
     ds.destroy()
 
   def testClassify(self):
-    try: os.unlink(fname)
-    except: pass
-    ds = dspam(fname,DSM_PROCESS,DSF_CLASSIFY|DSF_CHAINED|DSF_SIGNATURE)
+    ds = dspam(user,DSM_CLASSIFY,DSF_SIGNATURE,group,home)
     msg = open('test/'+hams[0]).read()
     msg = '\n'.join(msg.splitlines()).replace('\0','')
     ds.process(msg)
@@ -42,79 +51,57 @@ class DSpamTestCase(unittest.TestCase):
     self.assertEqual(totals,(0,0,0,0))
     ds.destroy()
     # test adding the signature later
-    ds = dspam(fname,DSM_ADDSPAM,DSF_CORPUS|DSF_CHAINED|DSF_SIGNATURE)
+    ds = dspam(user,DSM_PROCESS,DSF_SIGNATURE,group,home)
+    ds.source = DSS_ERROR
+    ds.classification = DSR_ISSPAM
     ds.process(sig)
     self.assertEqual(ds.totals,(1,0,0,0))
     ds.destroy()
 
-  # test base64 decoding in libdspam
-  def oldtestCopyback(self):
-    try: os.unlink(fname)
-    except: pass
-    ds = dspam(fname,DSM_PROCESS,DSF_CHAINED|DSF_COPYBACK)
-    msg = open('test/bounce').read()
-    ds.process('\n'.join(msg.splitlines()))
-    copyback = ds.copyback
-    self.failUnless(len(copyback) > 0 and len(copyback) < len(msg))
-    # test no base64 segment
-    msg = open('test/amazon').read()
-    # copyback adds an extra newline - no big deal
-    ds.process('\n'.join(msg.splitlines()))
-    copyback = ds.copyback
-    self.failUnless(copyback == msg)
-    ds.destroy()
-    
   # test mime parameter parsing
   def testProcess(self):
     hlen = len(hams)
     slen = len(spams)
     tlen = hlen + slen
-    try: os.unlink(fname)
-    except: pass
-    ds = dspam(fname,DSM_PROCESS,DSF_CHAINED|DSF_SIGNATURE|DSF_NOLOCK)
-    ds.lock()
-    try:
-      # add lots of ham
-      msglist = []
-      for ham in hams:
-	msg = open('test/'+ham).read()
-	msg = '\n'.join(msg.splitlines()).replace('\0','')
-	msglist.append(msg)
-      for seq in xrange(count):
-	for msg in msglist:
-	  ds.process(msg)
-	  self.assertEqual(ds.result,DSR_ISINNOCENT)
-      self.assertEqual(ds.totals,(0,hlen*count,0,0))
+    ds = dspam(user,DSM_PROCESS,DSF_SIGNATURE,group,home)
+    # add lots of ham
+    msglist = []
+    for ham in hams:
+      msg = open('test/'+ham).read()
+      msg = '\n'.join(msg.splitlines()).replace('\0','')
+      msglist.append(msg)
+    for seq in xrange(count):
+      for msg in msglist:
+	ds.process(msg)
+	self.assertEqual(ds.result,DSR_ISINNOCENT)
+    self.assertEqual(ds.totals,(0,hlen*count,0,0))
 
-      # add lots of spam and save the sigs
-      sigs = []
-      msglist = []
-      for spam in spams:
-	msg = open('test/'+spam).read()
-	msg = '\n'.join(msg.splitlines())
-	msglist.append(msg)
-      for seq in xrange(count):
-	for msg in msglist:
-	  ds.process(msg)
-	  # don't know its spam yet
-	  self.assertEqual(ds.result,DSR_ISINNOCENT)
-	  sigs.append(ds.signature)
-    finally:
-      ds.unlock()
+    # add lots of spam and save the sigs
+    sigs = []
+    msglist = []
+    for spam in spams:
+      msg = open('test/'+spam).read()
+      msg = '\n'.join(msg.splitlines())
+      msglist.append(msg)
+    for seq in xrange(count):
+      for msg in msglist:
+	ds.process(msg)
+	# don't know its spam yet
+	self.assertEqual(ds.result,DSR_ISINNOCENT)
+	sigs.append(ds.signature)
 
     # now tell it about all that spam
     self.assertEqual(ds.totals,(0,tlen*count,0,0))
-    ds = dspam(fname,DSM_ADDSPAM,DSF_CHAINED|DSF_SIGNATURE|DSF_NOLOCK)
-    ds.lock()
-    try:
-      for spamsig in sigs:
-	ds.process(spamsig)
-    finally:
-      ds.unlock()
+    ds = dspam(user,DSM_PROCESS,DSF_SIGNATURE,group,home)
+    ds.classification = DSR_ISSPAM
+    ds.source = DSS_ERROR
+    for spamsig in sigs:
+      ds.process(spamsig)
     self.assertEqual(ds.totals,(slen*count,hlen*count,slen*count,0))
+    ds.destroy()
 
     # exactly the same spam should get rejected with prob = 1.0
-    ds = dspam(fname,DSM_PROCESS,DSF_CHAINED|DSF_SIGNATURE)
+    ds = dspam(user,DSM_PROCESS,DSF_SIGNATURE,group,home)
     msg = msglist[0]
     ds.process(msg)
     self.assertEqual(ds.result,DSR_ISSPAM)
@@ -132,7 +119,7 @@ class DSpamTestCase(unittest.TestCase):
     msg = '\n'.join(lines)
 
     # test DSF_CLASSIFY
-    ds = dspam(fname,DSM_PROCESS,DSF_CLASSIFY|DSF_CHAINED|DSF_SIGNATURE)
+    ds = dspam(user,DSM_CLASSIFY,DSF_SIGNATURE,group,home)
     ds.process(msg)
     open('msg.out','w').write(msg)
     self.assertEqual(ds.result,DSR_ISSPAM)
@@ -141,21 +128,36 @@ class DSpamTestCase(unittest.TestCase):
     sig = ds.signature
 
     # actually process with CORPUS
-    ds = dspam(fname,DSM_ADDSPAM,DSF_CORPUS|DSF_CHAINED|DSF_SIGNATURE)
+    ds = dspam(user,DSM_PROCESS,DSF_SIGNATURE,group,home)
+    ds.classification = DSR_ISSPAM
+    ds.source = DSS_CORPUS
     ds.process(sig)
     self.assertEqual(ds.totals,(slen*count + 2,hlen*count,slen*count,0))
 
     # test false positive via signature
-    ds = dspam(fname,DSM_FALSEPOSITIVE,DSF_CHAINED|DSF_SIGNATURE)
+    ds = dspam(user,DSM_PROCESS,DSF_SIGNATURE,group,home)
+    ds.classification = DSR_ISINNOCENT
+    ds.source = DSS_ERROR
     ds.process(spamsig)
     self.assertEqual(ds.totals,(slen*count + 1,hlen*count+1,slen*count,1))
 
     # test false positive via full text
-    ds = dspam(fname,DSM_FALSEPOSITIVE,DSF_CHAINED)
+    ds = dspam(user,DSM_FALSEPOSITIVE,0,group,home)
+    ds.classification = DSR_ISINNOCENT
+    ds.source = DSS_ERROR
     ds.process(msglist[0])
     self.assertEqual(ds.totals,(slen*count ,hlen*count+2,slen*count,2))
 
 def suite(): return unittest.makeSuite(DSpamTestCase,'test')
 
 if __name__ == '__main__':
-  unittest.main()
+  print 'begin'
+  libdspam_init('/usr/lib64/dspam/libhash_drv.so')
+  print 'after init'
+  try:
+    init_driver(None)
+    print 'after init_driver'
+    unittest.main()
+    shutdown_driver(None)
+  finally:
+    libdspam_shutdown()
