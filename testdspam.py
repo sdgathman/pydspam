@@ -62,7 +62,7 @@ class DSpamTestCase(unittest.TestCase):
     ds = dspam(DSM_PROCESS,DSF_SIGNATURE)
     ds.source = DSS_ERROR
     ds.classification = DSR_ISSPAM
-    ds.process(sig)
+    ds.process(sig=sig)
     self.assertEqual(ds.totals,(1,0,0,0))
     ds.destroy()
 
@@ -104,7 +104,7 @@ class DSpamTestCase(unittest.TestCase):
     ds.classification = DSR_ISSPAM
     ds.source = DSS_ERROR
     for spamsig in sigs:
-      ds.process(spamsig)
+      ds.process(sig=spamsig)
     self.assertEqual(ds.totals,(slen*count,hlen*count,slen*count,0))
     ds.destroy()
 
@@ -139,14 +139,14 @@ class DSpamTestCase(unittest.TestCase):
     ds = dspam(DSM_PROCESS,DSF_SIGNATURE)
     ds.classification = DSR_ISSPAM
     ds.source = DSS_CORPUS
-    ds.process(sig)
+    ds.process(sig=sig)
     self.assertEqual(ds.totals,(slen*count + 2,hlen*count,slen*count,0))
 
     # test false positive via signature
     ds = dspam(DSM_PROCESS,DSF_SIGNATURE)
     ds.classification = DSR_ISINNOCENT
     ds.source = DSS_ERROR
-    ds.process(spamsig)
+    ds.process(sig=spamsig)
     self.assertEqual(ds.totals,(slen*count + 1,hlen*count+1,slen*count,1))
 
     # test false positive via full text
@@ -160,7 +160,7 @@ def suite(): return unittest.makeSuite(DSpamTestCase,'test')
 
 if __name__ == '__main__':
   print 'begin'
-  libdspam_init('/usr/lib64/dspam/libsqlite3_drv.so')
+  libdspam_init('/usr/lib64/dspam/libhash_drv.so')
   print 'after init'
   try:
     unittest.main()

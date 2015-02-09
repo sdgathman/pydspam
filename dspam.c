@@ -25,6 +25,9 @@
 
 /* 
  * $Log$
+ * Revision 2.12.2.1.2.3  2015/02/08 00:07:34  customdesigned
+ * Start of Documentation, and more details of wrapping done.
+ *
  * Revision 2.12.2.1.2.2  2015/02/07 06:30:51  customdesigned
  * libdspam_init() and ctx.attach()
  *
@@ -108,25 +111,38 @@ static char _dspam_process__doc__[] =
   property.";
 
 static PyObject *
-_dspam_process(PyObject *dspamobj, PyObject *args) {
+_dspam_process(PyObject *dspamobj, PyObject *args, PyObject *kwds) {
   dspam_Object *self = (dspam_Object *)dspamobj;
   DSPAM_CTX *ctx = self->ctx;
   char *message = 0;
+  struct _ds_spam_signature sig;
+  char *data = 0;
+  int len;
   int rc;
+  static char *kwlist[] = {"msg", "sig", 0};
   if (ctx == 0) {
     PyErr_SetString(DspamError, "Uninitialized DSPAM context");
     return NULL;
   }
-  if (self->mode == DSM_PROCESS || !(ctx->flags & DSF_SIGNATURE)) {
-    if (!PyArg_ParseTuple(args, "s:process",&message)) return NULL;
+  if (ctx->signature) {
+    free(ctx->signature->data);
+    free(ctx->signature);
+    ctx->signature = 0;
   }
-  else {
-    ctx->signature = malloc(sizeof *ctx->signature);
-    if (ctx->signature == 0) return PyErr_NoMemory();
-    if (!PyArg_ParseTuple(args, "s#:process",
-	  &ctx->signature->data,&ctx->signature->length)) return NULL;
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "z|z#:process", kwlist,
+      &message,&data,&len)) return NULL;
+  if (data) {
+    sig.data = data;
+    sig.length = len;
+    ctx->signature = &sig;
   }
+
   rc = dspam_process(ctx,message);
+  /* If we passed in signature, it was temp data, so unreference now. */
+  if (data) {
+    ctx->signature = NULL;
+    ctx->_sig_provided = 0;
+  }
 
   /* We don't need ctx->message, and it overrides the text message
    * if left in the context.  So destroy it now. */
@@ -139,29 +155,25 @@ _dspam_process(PyObject *dspamobj, PyObject *args) {
    * to free signature */
   if (ctx->signature) {
     char *buf = ctx->signature->data;
-    int len = ctx->signature->length;
+    unsigned long len = ctx->signature->length;
     free(ctx->signature);
     ctx->signature = 0;
     if (buf == 0) len = 0;
-    if (self->mode == DSM_PROCESS) {
-      if (!self->sig || PySequence_Size(self->sig) != len) {
-	Py_XDECREF(self->sig);
-	self->sig = PyBuffer_New(len);
-      }
-      if (self->sig) {
-	void *data;
-	Py_ssize_t dlen;
-	if (!PyObject_AsWriteBuffer(self->sig,&data,&dlen))
-	  memcpy(data,buf,dlen);
-	else {
-	  Py_DECREF(self->sig);
-	  self->sig = 0;
-	}
-      }
-      /* buf is allocated by libdspam only in DSM_PROCESS mode,
-       * otherwise it is allocated by the caller. */
-      free(buf);
+    if (!self->sig || PySequence_Size(self->sig) != len) {
+      Py_XDECREF(self->sig);
+      self->sig = PyBuffer_New(len);
     }
+    if (self->sig) {
+      void *data;
+      Py_ssize_t dlen;
+      if (!PyObject_AsWriteBuffer(self->sig,&data,&dlen))
+	memcpy(data,buf,dlen);
+      else {
+	Py_DECREF(self->sig);
+	self->sig = 0;
+      }
+    }
+    free(buf);
   }
   else {
     Py_XDECREF(self->sig);
@@ -496,7 +508,7 @@ static PyMethodDef dspamctx_methods[] = {
   { "clearattributes", _dspam_clearattributes, METH_VARARGS, _dspam_clearattributes__doc__},
   { "attach", _dspam_attach, METH_VARARGS, _dspam_attach__doc__},
   { "detach", _dspam_detach, METH_VARARGS, _dspam_detach__doc__},
-  { "process", _dspam_process, METH_VARARGS, _dspam_process__doc__},
+  { "process", (PyCFunction)_dspam_process, METH_VARARGS|METH_KEYWORDS, _dspam_process__doc__},
   { "tokenize", _dspam_tokenize, METH_VARARGS, _dspam_tokenize__doc__},
   { "destroy", _dspam_destroy, METH_VARARGS, _dspam_destroy__doc__},
   { NULL, NULL }
