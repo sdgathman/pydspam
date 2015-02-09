@@ -134,12 +134,20 @@ class ctx(object):
     ## Classification algorithms to employ.  Use any combination
     # of DSA_* and DSP_* flags.
     self.algorithms = 0
-    ## Training mode.
+    ## Training mode.  Use one of DST_* flags.
     self.training_mode = DST_TEFT
+    ## Totals.
+    # A tuple of 8 ints:
+    # (spam_learned, innocent_learned,
+    #  spam_misclassified, innocent_misclassified,
+    #  spam_corpusfed, innocent_corpusfed,
+    #  spam_classified, innocent_classified)
+    self.totals = (0,0,0,0,0,0,0,0)
 
   ## Calls <code>dspam_process(DSPAM_CTX ctx, const char *msg)</code>
   # @param msg the email message to process
-  def process(self,msg): pass
+  # @param sig a signature obtained from self.signature, or None
+  def process(self,msg,sig=None): pass
 
   ## Add configuration attribute to context.  Context configuration controls
   # the tokenizer, storage driver, and other aspects of DSPAM for this context.
