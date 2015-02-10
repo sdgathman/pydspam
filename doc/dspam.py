@@ -143,6 +143,13 @@ class ctx(object):
     #  spam_corpusfed, innocent_corpusfed,
     #  spam_classified, innocent_classified)
     self.totals = (0,0,0,0,0,0,0,0)
+    ## Probability.
+    # The probability that the message is spam according to libdspam.
+    self.probability = 0.0
+    ## Factors.
+    # A list of token_name,weight tuples.  These are the factors used
+    # by dspam to compute the probability.
+    self.factors = []
 
   ## Calls <code>dspam_process(DSPAM_CTX ctx, const char *msg)</code>
   # @param msg the email message to process

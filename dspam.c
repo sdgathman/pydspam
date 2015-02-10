@@ -25,6 +25,9 @@
 
 /* 
  * $Log$
+ * Revision 2.12.2.1.2.5  2015/02/10 00:06:39  customdesigned
+ * Add *_fcntl_lock and get/set/delete/verify signature.
+ *
  * Revision 2.12.2.1.2.4  2015/02/09 16:58:13  customdesigned
  * Fix signature handling.
  *
@@ -625,6 +628,33 @@ _dspam_gettot(dspam_Object *self, void *closure) {
   return Py_None;
 }
 
+static PyObject *
+_dspam_factors(dspam_Object *self, void *closure) {
+  DSPAM_CTX *ctx = self->ctx;
+  if (ctx && ctx->factors) {
+    struct nt_c c_ft;
+    PyObject *o = PyList_New(0);
+    struct nt_node *node_ft = c_nt_first(ctx->factors, &c_ft);
+    if (o == NULL) return NULL;
+    while (node_ft != NULL) {
+      struct dspam_factor *f = (struct dspam_factor *) node_ft->ptr;
+      if (f) {
+        PyObject *i = Py_BuildValue("(sf)",f->token_name,f->value);
+	if (i == NULL) break;
+        PyList_Append(o,i);
+      }
+      node_ft = c_nt_next(ctx->factors, &c_ft);
+    }
+    if (PyErr_Occurred()) {
+      Py_DECREF(o);
+      return NULL;
+    }
+    return o;
+  }
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyMethodDef dspamctx_methods[] = {
   { "addattribute", _dspam_addattribute, METH_VARARGS, _dspam_addattribute__doc__},
   { "clearattributes", _dspam_clearattributes, METH_VARARGS, _dspam_clearattributes__doc__},
@@ -665,7 +695,9 @@ static PyGetSetDef dspamctx_getsets[] = {
   { "username", (getter)_dspam_getusername, NULL, "User name" },
   { "group", (getter)_dspam_getgroup, NULL, "Group name" },
   { "home", (getter)_dspam_gethome, NULL, "DSPAM home" },
-  { "totals", (getter)_dspam_gettot, NULL, "(SPAM,INNOCENT,MISS,FP)" },
+  { "totals", (getter)_dspam_gettot, NULL,
+    "(SPAM,INNOCENT,MISS,FP,SPAMCORP,INNOCCORP,SPAMCLASS,INNOCCLASS)" },
+  { "factors", (getter)_dspam_factors, NULL, "[(tok,weight),...]" },
   {NULL},
 };
 
