@@ -17,6 +17,7 @@ def dspam(mode,flags=0):
   ds = ctx(user,mode,flags,group,home)
   ds.algorithms = DSA_GRAHAM | DSA_BURTON | DSP_GRAHAM
   ds.attach()
+  ds.addattribute("IgnoreHeader","Content-Type")
   yield ds
   ds.destroy()
 
@@ -122,21 +123,34 @@ class DSpamTestCase(unittest.TestCase):
       self.assertEqual(ds.totals,(slen*count+1,hlen*count,slen*count,0,0,0,0,0))
       totals = ds.totals
       spamsig = ds.signature # save for FALSEPOSITIVE test
+      factors = ds.factors
 
     # a slightly different version of a spam should still get rejected
     lines = msg.splitlines()
     lines[0] = "From: lover <f234235@spam.com>"
-    #lines[1] = "To: victim <victim@lamb.com>"
+    lines[1] = "To: victim <victim@lamb.com>"
     lines[2] = "Subject: Approval"
     lines = filter(lambda ln: ln.find("Q2Xet") < 0,lines)
+    omsg = msg
     msg = '\n'.join(lines)
+    self.assertFalse(msg == omsg)
 
     # test DSF_CLASSIFY
     with dspam(DSM_CLASSIFY,DSF_SIGNATURE) as ds:
       ds.process(msg)
-      open('msg.out','w').write(msg)
       self.assertEqual(ds.result,DSR_ISSPAM)
-      #FIXME: self.failUnless(ds.probability < 1.0)
+      if False and ds.probability >= 1.0:
+        open('msg.out','w').write(msg)
+        print omsg
+	print '------'
+	for n,v in factors:
+	  print n,v
+	print '------'
+	print ds.probability
+	print '------'
+	for n,v in ds.factors:
+	  print n,v
+      self.failUnless(ds.probability < 1.0)
       self.assertEqual(ds.totals,totals)
       sig = ds.signature
 
