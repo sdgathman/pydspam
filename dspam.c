@@ -25,6 +25,9 @@
 
 /* 
  * $Log$
+ * Revision 2.12.2.1.2.4  2015/02/09 16:58:13  customdesigned
+ * Fix signature handling.
+ *
  * Revision 2.12.2.1.2.3  2015/02/08 00:07:34  customdesigned
  * Start of Documentation, and more details of wrapping done.
  *
@@ -39,6 +42,8 @@
 #include <Python.h>
 #include <structmember.h>
 /* #define DEBUG 2		/* if libdspam compiled with --enable-debug */
+#include <dspam/auto-config.h>
+#include <dspam/util.h>
 #include <dspam/libdspam.h>
 
 /* These functions are not exported, but are necessary to replicate
@@ -362,6 +367,123 @@ _dspam_detach(PyObject *dspamctx, PyObject *args) {
   return Py_None;
 }
 
+static char _dspam_set_signature__doc__[] =
+"set_signature(sig,tag) -> None\n\
+  Store signature via storage driver by tag.";
+
+static PyObject *
+_dspam_set_signature(PyObject *dspamctx, PyObject *args) {
+  dspam_Object *self = (dspam_Object *)dspamctx;
+  DSPAM_CTX *ctx = self->ctx;
+  char *data;
+  int len;
+  const char *tag;
+  struct _ds_spam_signature sig;
+  if (!PyArg_ParseTuple(args, "s#s:set_signature",&data,&len,&tag)) return NULL;
+  if (!ctx) {
+    PyErr_SetString(DspamError, "Uninitialized DSPAM context");
+    return NULL;
+  }
+  if (!ctx->storage) {
+    PyErr_SetString(DspamError, "Storage not attached to DSPAM context");
+    return NULL;
+  }
+  sig.data = data;
+  sig.length = len;
+  if (_ds_set_signature(ctx,&sig,tag)) {
+    PyErr_SetString(DspamError, "Failed to store signature");
+    return NULL;
+  }
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static char _dspam_get_signature__doc__[] =
+"get_signature(tag) -> None\n\
+  Retrieve signature from storage driver by tag.";
+
+static PyObject *
+_dspam_get_signature(PyObject *dspamctx, PyObject *args) {
+  dspam_Object *self = (dspam_Object *)dspamctx;
+  DSPAM_CTX *ctx = self->ctx;
+  const char *tag;
+  struct _ds_spam_signature sig;
+  PyObject *o;
+  void *data;
+  Py_ssize_t dlen;
+  if (!PyArg_ParseTuple(args, "s:get_signature",&tag)) return NULL;
+  if (!ctx) {
+    PyErr_SetString(DspamError, "Uninitialized DSPAM context");
+    return NULL;
+  }
+  if (!ctx->storage) {
+    PyErr_SetString(DspamError, "Storage not attached to DSPAM context");
+    return NULL;
+  }
+  if (_ds_get_signature(ctx,&sig,tag)) {
+    PyErr_SetString(DspamError, "Failed to retreive signature");
+    return NULL;
+  }
+  o = PyBuffer_New(sig.length);
+  if (!o) return NULL;
+  if (PyObject_AsWriteBuffer(self->sig,&data,&dlen)) {
+    Py_DECREF(o);
+    return NULL;
+  }
+  memcpy(data,sig.data,dlen);
+  return o;
+}
+
+static char _dspam_delete_signature__doc__[] =
+"delete_signature(tag) -> None\n\
+  Delete signature from storage driver by tag.";
+
+static PyObject *
+_dspam_delete_signature(PyObject *dspamctx, PyObject *args) {
+  dspam_Object *self = (dspam_Object *)dspamctx;
+  DSPAM_CTX *ctx = self->ctx;
+  const char *tag;
+  if (!PyArg_ParseTuple(args, "s:delete_signature",&tag)) return NULL;
+  if (!ctx) {
+    PyErr_SetString(DspamError, "Uninitialized DSPAM context");
+    return NULL;
+  }
+  if (!ctx->storage) {
+    PyErr_SetString(DspamError, "Storage not attached to DSPAM context");
+    return NULL;
+  }
+  if (_ds_delete_signature(ctx,tag)) {
+    PyErr_SetString(DspamError, "Failed to delete signature");
+    return NULL;
+  }
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static char _dspam_verify_signature__doc__[] =
+"verify_signature(tag) -> None\n\
+  Return True if tag still stored via storage driver.";
+
+static PyObject *
+_dspam_verify_signature(PyObject *dspamctx, PyObject *args) {
+  dspam_Object *self = (dspam_Object *)dspamctx;
+  DSPAM_CTX *ctx = self->ctx;
+  const char *tag;
+  PyObject *o;
+  if (!PyArg_ParseTuple(args, "s:verify_signature",&tag)) return NULL;
+  if (!ctx) {
+    PyErr_SetString(DspamError, "Uninitialized DSPAM context");
+    return NULL;
+  }
+  if (!ctx->storage) {
+    PyErr_SetString(DspamError, "Storage not attached to DSPAM context");
+    return NULL;
+  }
+  o = _ds_verify_signature(ctx,tag) ? Py_False : Py_True;
+  Py_INCREF(o);
+  return o;
+}
+
 static PyObject *
 _generic_getstring(void *obj, int offset) {
   if (obj) {
@@ -509,6 +631,10 @@ static PyMethodDef dspamctx_methods[] = {
   { "attach", _dspam_attach, METH_VARARGS, _dspam_attach__doc__},
   { "detach", _dspam_detach, METH_VARARGS, _dspam_detach__doc__},
   { "process", (PyCFunction)_dspam_process, METH_VARARGS|METH_KEYWORDS, _dspam_process__doc__},
+  { "set_signature",_dspam_set_signature, METH_VARARGS, _dspam_set_signature__doc__},
+  { "get_signature",_dspam_get_signature, METH_VARARGS, _dspam_get_signature__doc__},
+  { "delete_signature",_dspam_delete_signature, METH_VARARGS, _dspam_delete_signature__doc__},
+  { "verify_signature",_dspam_verify_signature, METH_VARARGS, _dspam_verify_signature__doc__},
   { "tokenize", _dspam_tokenize, METH_VARARGS, _dspam_tokenize__doc__},
   { "destroy", _dspam_destroy, METH_VARARGS, _dspam_destroy__doc__},
   { NULL, NULL }
@@ -564,6 +690,49 @@ set_debug(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static char _dspam_userdir__doc__[] =
+"userdir(home,user,ext) -> None\n\
+  Return path of user specific filename.";
+
+static PyObject *
+_dspam_userdir(PyObject *dspamctx, PyObject *args) {
+  const char *home = 0;
+  const char *username = 0;
+  const char *ext = 0;
+  char path[PATH_MAX];
+  if (!PyArg_ParseTuple(args, "ss|z:userdir")) return NULL;
+  return Py_BuildValue("s",_ds_userdir_path(path,home,username,ext));
+}
+
+static char _dspam_get_fcntl_lock__doc__[] =
+"get_fcntl_lock(fileno) -> None\n\
+  Lock a file using the DSPAM locking protocol.";
+
+static PyObject *
+_dspam_get_fcntl_lock(PyObject *module, PyObject *args) {
+  int fileno;
+  if (!PyArg_ParseTuple(args, "i:get_fcntl_lock",&fileno)) return NULL;
+  if (_ds_get_fcntl_lock(fileno)) {
+    PyErr_SetString(DspamError, "Lock failed");
+    return NULL;
+  }
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static char _dspam_free_fcntl_lock__doc__[] =
+"free_fcntl_lock(fileno) -> None\n\
+  Unlock a file locked with get_fcntl_lock().";
+
+static PyObject *
+_dspam_free_fcntl_lock(PyObject *module, PyObject *args) {
+  int fileno;
+  if (!PyArg_ParseTuple(args, "i:free_fcntl_unlock",&fileno)) return NULL;
+  _ds_free_fcntl_lock(fileno);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 // static DRIVER_CTX DTX;
 
 static char _libdspam_init__doc__[] =
@@ -599,6 +768,9 @@ _libdspam_shutdown(PyObject *self, PyObject *args) {
 }
 
 static PyMethodDef _dspam_methods[] = {
+  { "userdir", _dspam_userdir, METH_VARARGS, _dspam_userdir__doc__},
+  { "get_fcntl_lock", _dspam_get_fcntl_lock, METH_VARARGS, _dspam_get_fcntl_lock__doc__},
+  { "free_fcntl_unlock", _dspam_free_fcntl_lock, METH_VARARGS, _dspam_free_fcntl_lock__doc__},
   { "set_debug",set_debug, METH_VARARGS, set_debug__doc__ },
   { "libdspam_init",_libdspam_init, METH_VARARGS, _libdspam_init__doc__ },
   { "libdspam_shutdown",_libdspam_shutdown, METH_VARARGS, _libdspam_shutdown__doc__ },

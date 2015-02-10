@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.21.2.13  2009/08/28 03:20:31  customdesigned
+# Process headers of redirected spam.
+#
 # Revision 2.21.2.12  2006/01/18 01:29:48  customdesigned
 # passwd style update transaction lockfile
 # case insensitive alerts
@@ -117,11 +120,19 @@ import StringIO
 import thread
 
 from email.Encoders import encode_base64, encode_quopri
+from contextlib import contextmanager
 
-VERSION = "1.1.9" # abi compatibility, not package version
+VERSION = "1.3" # abi compatibility, not package version
 
 _seq_lock = thread.allocate_lock()
 _seq = 0
+
+@contextmanager 
+def file_lock(fname):
+  with open(fname,'a') as fp:
+    dspam.get_fcntl_lock(fp.fileno())
+    yield
+    dspam.free_fcntl_lock(fp.fileno())
 
 def create_signature_id():
   global _seq
@@ -226,14 +237,19 @@ def convert_eol(txt):
 
 class DSpamDirectory(object):
 
-  def _log(self,*msg): pass
+  def _lognull(self,*msg): pass
 
   def __init__(self,userdir):
+    ## DSPAM home.  Base directory where dspam stores
+    # dictionaries and configs.
     self.userdir = userdir
     self.groupfile = os.path.join(userdir,'group')
-    self.log = self._log
+    ## Logging method.
+    self.log = self._lognull
     self.headerchange = None
 
+  ## Return group user belongs to.  
+  # FIXME: update for new group concepts.
   def get_group(self,user):
     return parse_groups(self.groupfile).get(user,user)
 
@@ -241,11 +257,10 @@ class DSpamDirectory(object):
     "Return filenames for dict,sigs,mbox as a tuple."
     group = self.get_group(user)
     # find names of files
-    dspam_userdir = self.userdir
-    self.dspam_dict = os.path.join(dspam_userdir,group+'.dict')
-    self.dspam_stats = os.path.join(dspam_userdir,group+'.stats')
-    self.sigfile = os.path.join(dspam_userdir,user+'.sig')
-    self.mbox = os.path.join(dspam_userdir,user+'.mbox')
+    self.dspam_dict = dspam.userdir(self.userdir,group,'.css')
+    self.dspam_stats = dspam.userdir(self.userdir,group,'.stats')
+    self.sigfile = dspam.userdir(self.userdir,user,'.sig')
+    self.mbox = dspam.userdir(self.userdir,user,'.mbox')
     return (self.dspam_dict,self.sigfile,self.mbox)
 
 # check spaminess for a message
@@ -257,13 +272,16 @@ class DSpamDirectory(object):
 
     opts = dspam.DSF_CHAINED|dspam.DSF_SIGNATURE|dspam.DSF_NOLOCK
     if classify:
-      opts |= dspam.DSF_CLASSIFY
+      op = dspam.DSM_CLASSIFY
+    else:
+      op = dspam.DSM_PROCESS
     savmask = os.umask(006) # mail group must be able write dict and sig
     try:
-      _seq_lock.acquire()
+      _seq_lock.acquire()	# for drivers that aren't thread safe
+      ds = dspam.dspam(dspam_dict,dspam.DSM_PROCESS,opts)
+      #with file_lock(dspam_dict):
       dspam.file_lock(dspam_dict)
       txt = convert_eol(txt)
-      ds = dspam.dspam(dspam_dict,dspam.DSM_PROCESS,opts)
       try:
 	ds.process(txt)
 	self.totals = ds.totals

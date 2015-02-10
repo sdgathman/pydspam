@@ -164,6 +164,30 @@ class ctx(object):
   # specific way so it can be reused, or None
   def attach(self,dbh=None): pass
 
+  ## Store a signature using the attached storage driver.  The tag
+  # should be suitable for a filename.
+  # @param sig Binary signature obtained from self.signature
+  # @param tag unique tag assigned to the signature
+  def set_signature(self,sig,tag): pass
+
+  ## Retrieve a signature stored using the attached storage driver.  
+  # Throws an exception if the tag is not present.  Use verify_signature to
+  # check first.
+  # @param tag unique tag assigned to the signature
+  # @return the tag retreived
+  def get_signature(self,tag): pass
+
+  ## Delete a signature stored using the attached storage driver.  
+  # Throws an exception if the tag is not present.  
+  # @param tag unique tag assigned to the signature
+  def delete_signature(self,tag): pass
+
+  ## Verify a signature stored using the attached storage driver.  
+  # Use verify_signature to check first.
+  # @param tag unique tag assigned to the signature
+  # @return True if the tag still exists in storage
+  def verify_signature(self,tag): pass
+
   ## Detaches storage driver from context.  
   def detach(self): pass
 
@@ -175,6 +199,27 @@ class ctx(object):
   def destroy(self): pass
 
 class error(Exception): pass
+
+## Return path of user or group specific file.
+# This calls the internal libdspam function <code>_ds_userdir_path()</code>,
+# which has compile time options for how the path name is computed
+# (for example LARGEFILE, HOMEDIR, DOMAINSCALE). If the
+# extension is None, the user directory is returned, otherwise the path
+# of a user file is returned.  For a user file
+# with no extension, use an empty string for the extension.
+
+# @param home The dspam base dir - normally what is passed to dspam.ctx.
+# @param user The user or group name that forms the base of the file.
+# @param ext The filename extension, or '' or None
+def userdir(home,user,ext=None): pass
+
+## Get fnctl lock for open file using libdspam conventions.
+# @param fd the fileno of an open file
+def get_fcntl_lock(fd): pass
+
+## Free the fnctl lock for an open file using libdspam conventions.
+# @param fd the fileno of an open file
+def free_fcntl_lock(fd): pass
 
 ## Set debugging output mode.  Mode 2 is more efficient, but mode 1
 # ensures that you see all the output.  This only works if libdspam
