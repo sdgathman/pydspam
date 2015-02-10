@@ -25,6 +25,9 @@
 
 /* 
  * $Log$
+ * Revision 2.12.2.1.2.6  2015/02/10 00:50:33  customdesigned
+ * Add factors attribute.
+ *
  * Revision 2.12.2.1.2.5  2015/02/10 00:06:39  customdesigned
  * Add *_fcntl_lock and get/set/delete/verify signature.
  *
@@ -371,7 +374,7 @@ _dspam_detach(PyObject *dspamctx, PyObject *args) {
 }
 
 static char _dspam_set_signature__doc__[] =
-"set_signature(sig,tag) -> None\n\
+"set_signature(tag,sig) -> None\n\
   Store signature via storage driver by tag.";
 
 static PyObject *
@@ -382,7 +385,7 @@ _dspam_set_signature(PyObject *dspamctx, PyObject *args) {
   int len;
   const char *tag;
   struct _ds_spam_signature sig;
-  if (!PyArg_ParseTuple(args, "s#s:set_signature",&data,&len,&tag)) return NULL;
+  if (!PyArg_ParseTuple(args, "ss#:set_signature",&tag,&data,&len)) return NULL;
   if (!ctx) {
     PyErr_SetString(DspamError, "Uninitialized DSPAM context");
     return NULL;

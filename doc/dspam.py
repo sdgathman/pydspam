@@ -173,9 +173,9 @@ class ctx(object):
 
   ## Store a signature using the attached storage driver.  The tag
   # should be suitable for a filename.
-  # @param sig Binary signature obtained from self.signature
   # @param tag unique tag assigned to the signature
-  def set_signature(self,sig,tag): pass
+  # @param sig Binary signature obtained from self.signature
+  def set_signature(self,tag,sig): pass
 
   ## Retrieve a signature stored using the attached storage driver.  
   # Throws an exception if the tag is not present.  Use verify_signature to
