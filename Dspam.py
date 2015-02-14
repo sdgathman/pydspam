@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.27  2015/02/14 21:14:47  customdesigned
+# Much farther through test suite.
+#
 # Revision 2.26  2015/02/14 18:55:04  customdesigned
 # Add set_verified_user method
 #
@@ -79,7 +82,7 @@ def put_signature(ds,sig,sigfile=None):
 	key = create_signature_id()
       ds.set_signature(key,sig)
     except Exception,x:
-      print 'put_signature:',x
+      #print 'put_signature:',x
       key = None
   return key
 
@@ -258,7 +261,6 @@ class DSpamDirectory(object):
   def user_files(self,user):
     "Return filenames for dict,sigs,mbox as a tuple."
     group = self.get_group(user)
-    print 'group =',group
     # find names of files
     self.username = user
     try: os.makedirs(dspam.userdir(self.userdir,user))
@@ -288,7 +290,6 @@ class DSpamDirectory(object):
 
     dspam_dict,sigfile,mbox = self.user_files(user)
 
-    print 'mbox =',mbox
     savmask = os.umask(006) # mail group must be able write dict and sig
     try:
       _seq_lock.acquire()	# for drivers that aren't thread safe

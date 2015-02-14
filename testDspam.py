@@ -80,7 +80,7 @@ class pyDSpamTestCase(unittest.TestCase):
     # check that all kinds of messages get properly tagged
     spams = SPAMS
     hams = HAMS
-    ds.log = self.log
+    #ds.log = self.log
     for fname in spams + hams:
       txt = open(os.path.join('test',fname)).read()
       msgs[fname] = ds.check_spam('tonto',txt)
@@ -99,7 +99,6 @@ class pyDSpamTestCase(unittest.TestCase):
     for fname in spams:
       txt = ds.add_spam('tonto',msgs[fname])		# feedback spam
       self.failUnless(txt is not None)
-      print ds.totals
       ntxt,tag = Dspam.extract_signature_tags(txt)
       self.assertEqual(len(tag),0,fname+' tag not removed')
 
@@ -119,10 +118,9 @@ class pyDSpamTestCase(unittest.TestCase):
       txt = ds.check_spam('tonto',txt)
       if not txt: break	# message was quarantined
       ds.add_spam('tonto',txt)
-      tot = ds.totals
       txt = open('test/samp1').read()	# innocent mail
       txt = ds.check_spam('tonto',txt)
-      self.failUnless(txt)
+      self.failUnless(txt)		# should not have been quarantined
 
     # now receive a message that will be a false positive
     # I manually ran dspam_anal.py to find spammy keywords after
@@ -138,7 +136,7 @@ class pyDSpamTestCase(unittest.TestCase):
     self.assertEqual(msg.get('subject'),
 	'Just another "Crappy Day in Paradise" here @ the Ranch')
     msg = mb.next()	# get 2nd message, which should be our false positive
-    self.assertEqual(msg.get('subject'),'one more unit test')
+    self.assertEqual(msg.get('subject'),'Just another unit test')
     txt = msg.as_string()
     ds.false_positive('tonto',txt)	# feedback as false positive
     tot = ds.totals
