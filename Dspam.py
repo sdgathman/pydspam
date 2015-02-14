@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.25  2015/02/14 15:40:10  customdesigned
+# Crasher typo fixed.
+#
 # Revision 2.24  2015/02/14 02:24:14  customdesigned
 # Finished revamping Dspam.py, gets past initialization, then segfaults.  :-(
 #
@@ -36,7 +39,7 @@ _seq = 0
 def file_lock(fname):
   with open(fname,'a') as fp:
     dspam.get_fcntl_lock(fp.fileno())
-    yield
+    yield fp
     dspam.free_fcntl_lock(fp.fileno())
 
 ## Create a mostly unique tag for a signature.
@@ -72,7 +75,8 @@ def put_signature(ds,sig,sigfile=None):
       while ds.verify_signature(key):
 	key = create_signature_id()
       ds.set_signature(key,sig)
-    except:
+    except Exception,x:
+      print 'put_signature:',x
       key = None
   return key
 
@@ -224,6 +228,7 @@ class DSpamDirectory(object):
   # </pre>
   # @param op dspam operation mode: one of dspam.DSM_*
   # @param flags dspam operation flags: set of dspam.DSF_*
+  # @param user a different user, e.g. for innoculation
   # @return context manager for dspam.ctx
   @contextmanager
   def dspam_ctx(self,op,flags=0,user=None):
@@ -234,10 +239,8 @@ class DSpamDirectory(object):
     ds.tokenizer = self.tokenizer
     ds.training_mode = self.training
     ds.attach()
-    print 'enter',user
     yield ds
     self.totals = ds.totals
-    print 'leave',self.totals
     ds.destroy()
 
   ## Return group user belongs to.  
@@ -253,8 +256,9 @@ class DSpamDirectory(object):
     group = self.get_group(user)
     print 'group =',group
     # find names of files
-    self.user = user
-    os.makedirs(dspam.userdir(self.userdir,user))
+    self.username = user
+    try: os.makedirs(dspam.userdir(self.userdir,user))
+    except: pass
     #self.group = group
     self.dspam_dict = dspam.userdir(self.userdir,group,'css')
     self.dspam_stats = dspam.userdir(self.userdir,group,'stats')
@@ -286,7 +290,7 @@ class DSpamDirectory(object):
       _seq_lock.acquire()	# for drivers that aren't thread safe
       txt = convert_eol(txt)
       with file_lock(self.lock):
-	with dspam_ctx(dspam.DSM_PROCESS,dspam.DSF_SIGNATURE) as ds:
+	with self.dspam_ctx(dspam.DSM_PROCESS,dspam.DSF_SIGNATURE) as ds:
 	  if classify:	# classify meant train on error in previous pydspam
 	    ds.training_mode = DST_TOE
 	  #if force_result:
@@ -318,18 +322,17 @@ class DSpamDirectory(object):
 	    self.result = force_result
 	  self._innoc(user,[sig],force_result)
 
-	with dspam_ctx(dspam.DSM_TOOLS) as ds:
+	with self.dspam_ctx(dspam.DSM_TOOLS) as ds:
 	  self.write_web_stats(ds.totals)
 	  sigkey = put_signature(ds,sig)
 	if not sigkey:
 	  self.log("WARN: tag generation failed")
 	  return txt
 
-	self._add_sig(txt,sigkey,recipients)
+	return self._add_sig(txt,sigkey,recipients)
     finally:
       _seq_lock.release()
       os.umask(savmask)
-    return txt
 
   def _add_sig(self,txt,sigkey,recipients=None):
     try:
@@ -351,6 +354,7 @@ class DSpamDirectory(object):
       txt = msg.as_string()
     except:
       if True or self.result == dspam.DSR_ISSPAM: raise
+    return txt
 
   ## Update dspam stats stored as text for the web interface.
   # @param totals totals obtained from dspam.ctx.totals
@@ -361,9 +365,9 @@ class DSpamDirectory(object):
       spam_classified,innocent_classified) = totals
     with open(self.dspam_stats,'w') as fp:
       fp.write("%d,%d,%d,%d,%d,%d\n" % (
-	 MAX(0, (spam_learned + spam_classified) -
+	 max(0, (spam_learned + spam_classified) -
 	   (spam_misclassified + spam_corpusfed)),
-	 MAX(0, (innocent_learned + innocent_classified) -
+	 max(0, (innocent_learned + innocent_classified) -
 	   (innocent_misclassified + innocent_corpusfed)),
 	 spam_misclassified, innocent_misclassified,
 	 spam_corpusfed, innocent_corpusfed))
@@ -392,10 +396,11 @@ class DSpamDirectory(object):
       with self.dspam_ctx(dspam.DSM_PROCESS,dspam.DSF_SIGNATURE) as ds:
 	txt,tags = extract_signature_tags(txt)
 	for tag in tags:
-	  self.log("TAG:",tag);
 	  if ds.verify_signature(tag):
 	    sig = ds.get_signature(tag)
 	    sigs.append(sig)
+	    ds.classification = op
+	    ds.source = dspam.DSS_ERROR
 	    ds.process(None,sig=sig)	# reverse stats
 	    ds.delete_signature(tag)
 	    try: 
@@ -430,11 +435,9 @@ class DSpamDirectory(object):
 	for u in users:
 	  self.log('INNOC:',u)
 	  u_grp = self.get_group(u)
-	  u_dict = os.path.join(self.userdir,u_grp+'.dict')
-	  ds = dspam.dspam(u_dict,op,opts)
 	  with self.dspam_ctx(dspam.DSM_PROCESS,dspam.DSF_SIGNATURE,u) as ds:
 	    ds.classification = op
-	    ds.source = dspam.DSS_CORPUS
+	    ds.source = dspam.DSS_INOCULATION
 	    for sig in sigs:
 	      ds.process(None,sig=sig)
       except Exception,x:

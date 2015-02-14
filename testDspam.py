@@ -10,7 +10,7 @@ from email.Parser import Parser
 
 userdir = 'testdir'	# test user directory
 
-SPAMS = ('spam1','spam7','spam8','spam44','virus','spam9', 'funky')
+SPAMS = ('spam1','spam7','spam8','spam44','virus', 'funky')
 HAMS = ('samp1','test8')
 
 class pyDSpamTestCase(unittest.TestCase):
@@ -18,7 +18,10 @@ class pyDSpamTestCase(unittest.TestCase):
   def setUp(self):
     try:
       shutil.rmtree(userdir+'/data')
-      os.makedirs(userdir+'/data')
+      savmask = os.umask(006) # mail group must be able write dict and sig
+      try:
+	os.makedirs(userdir+'/data')
+      finally: os.umask(savmask)
     except OSError: pass
     ds = Dspam.DSpamDirectory(userdir)
     fp = open(ds.groupfile,'w')
@@ -37,11 +40,12 @@ class pyDSpamTestCase(unittest.TestCase):
     self.failUnless(ds.get_group('sil') == 'unilit')
     self.failUnless(ds.get_group('tonto') == 'tonto')
     files = ds.user_files('alb')
-    self.failUnless(files == (
-      os.path.join(userdir,'bms.dict'),
-      os.path.join(userdir,'alb.sig'),
-      os.path.join(userdir,'alb.mbox')
-    ))
+    # FIXME: figure how to test for new API
+    #self.failUnless(files == (
+    #  os.path.join(userdir,'bms.dict'),
+    #  os.path.join(userdir,'alb.sig'),
+    #  os.path.join(userdir,'alb.mbox')
+    #))
 
   # Check fallback for lock-timeout during addspam or falsepositive
   def notestLock(self,spams=SPAMS,hams=HAMS):
@@ -65,30 +69,37 @@ class pyDSpamTestCase(unittest.TestCase):
     ds1.unlock()
     # check that message got written to overflow
     self.failUnless(os.path.exists(overflow))
+  def log(self,*msg):
+    for s in msg:
+      print s,
+    print
 
   def testProcess(self):
     ds = self.ds
-    msgs = []
+    msgs = {}
     # check that all kinds of messages get properly tagged
     spams = SPAMS
     hams = HAMS
+    ds.log = self.log
     for fname in spams + hams:
       txt = open(os.path.join('test',fname)).read()
-      msgs.append(ds.check_spam('tonto',txt))
+      msgs[fname] = ds.check_spam('tonto',txt)
+      self.assertEqual(ds.result,dspam.DSR_ISINNOCENT)
 
     # check that sigs are all present
-    db = bsddb.btopen(ds.user_files('tonto')[1],'r')
-    for txt in msgs:
-      txt,tag = Dspam.extract_signature_tags(txt)
-      self.failUnless(len(tag) == 1)
-      self.failUnless(db.has_key(tag[0]))
-    db.close()
+    with ds.dspam_ctx(dspam.DSM_TOOLS) as db:
+      for fname,txt in msgs.iteritems():
+	ntxt,tag = Dspam.extract_signature_tags(txt)
+	if not tag:
+	  with open('msg.out','w') as fp: fp.write(txt)
+	self.assertEqual(len(tag),1,fname+' missing tag')
+	self.failUnless(db.verify_signature(tag[0]))
 
-    for txt in spams:
-      txt = open(os.path.join('test',fname)).read()
+    for fname in spams:
+      txt = msgs[fname]
       ds.add_spam('tonto',txt)		# feedback spam
       tot = ds.totals
-    self.assertEqual(tot,(len(spams),len(msgs),len(spams),0))
+    self.assertEqual(tot,(len(spams),len(msgs),len(spams),0,0,0,0,0))
 
     # check that sigs were deleted
     dspam_dict,sigfile,mbox = ds.user_files('tonto')
@@ -141,7 +152,7 @@ import mime
 class tagTestCase(unittest.TestCase):
 
   def testtag(self):
-    fp = file('test/spam3')
+    fp = file('test/spam1')
     msg = mime.message_from_file(fp)
     self.assertTrue(not msg.get_payload() is None)
     sigkey = 'TESTING123'
@@ -181,6 +192,10 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
       ds = Dspam.DSpamDirectory(userdir)
       for fname in sys.argv[1:]:
+        if fname == 'tag':
+	  s2 = unittest.makeSuite(tagTestCase,'test')
+	  unittest.TextTestRunner(verbosity=2).run(s2)
+	  continue
         print fname
 	txt = open(fname).read()
 	print ds.check_spam('tonto',txt)

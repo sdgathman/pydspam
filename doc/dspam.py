@@ -255,6 +255,12 @@ def free_fcntl_lock(fd): pass
 # @param mode 0 - off, 1 - flush after every output, 2 - no flush
 def set_debug(mode): pass
 
+## Set verified_user flag.  Set to true for libdspam to autocreate
+# user directories, and other behaviour I haven't speced out yet.
+# I defaulted this to True, since that is the dspam default
+# when external lookup is not configured.
+def set_verified_user(flag): pass
+
 ## Initialize libdspam.  Currently this just means dynamically
 # loading the storage driver.
 # The driver path can be None only if it was statically configured

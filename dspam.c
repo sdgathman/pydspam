@@ -25,6 +25,9 @@
 
 /* 
  * $Log$
+ * Revision 2.15  2015/02/14 15:40:10  customdesigned
+ * Crasher typo fixed.
+ *
  * Revision 2.14  2015/02/11 22:06:03  customdesigned
  * Merge pydspam-3-branch to trunk
  *
@@ -60,6 +63,8 @@
 
 /* These functions are not exported, but are necessary to replicate
  * the functionality of dspam. */
+
+int verified_user = 1;
 
 static PyObject *DspamError;
 
@@ -731,6 +736,18 @@ set_debug(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static char set_verified_user__doc__[] =
+"set_verified_user(flag) -> None\n\
+  Set True if user is verified.";
+
+static PyObject *
+set_verified_user(PyObject *self, PyObject *args) {
+  if (!PyArg_ParseTuple(args, "i:set_verified_user",&verified_user))
+    return NULL;
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static char _dspam_userdir__doc__[] =
 "userdir(home,user,ext) -> None\n\
   Return path of user specific filename.";
@@ -815,6 +832,7 @@ static PyMethodDef _dspam_methods[] = {
   { "get_fcntl_lock", _dspam_get_fcntl_lock, METH_VARARGS, _dspam_get_fcntl_lock__doc__},
   { "free_fcntl_lock", _dspam_free_fcntl_lock, METH_VARARGS, _dspam_free_fcntl_lock__doc__},
   { "set_debug",set_debug, METH_VARARGS, set_debug__doc__ },
+  { "set_verified_user",set_verified_user, METH_VARARGS, set_verified_user__doc__ },
   { "libdspam_init",_libdspam_init, METH_VARARGS, _libdspam_init__doc__ },
   { "libdspam_shutdown",_libdspam_shutdown, METH_VARARGS, _libdspam_shutdown__doc__ },
   { NULL, NULL }
