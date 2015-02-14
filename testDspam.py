@@ -181,6 +181,7 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
       ds = Dspam.DSpamDirectory(userdir)
       for fname in sys.argv[1:]:
+        print fname
 	txt = open(fname).read()
 	print ds.check_spam('tonto',txt)
     else:

@@ -25,6 +25,9 @@
 
 /* 
  * $Log$
+ * Revision 2.14  2015/02/11 22:06:03  customdesigned
+ * Merge pydspam-3-branch to trunk
+ *
  * Revision 2.12.2.1.2.7  2015/02/10 03:13:20  customdesigned
  * Reverse args for set_signature
  *
@@ -737,8 +740,10 @@ _dspam_userdir(PyObject *dspamctx, PyObject *args) {
   const char *home = 0;
   const char *username = 0;
   const char *ext = 0;
-  char path[PATH_MAX];
-  if (!PyArg_ParseTuple(args, "ss|z:userdir")) return NULL;
+  //char path[PATH_MAX];
+  char path[256];
+  if (!PyArg_ParseTuple(args, "ss|z:userdir", &home,&username,&ext))
+  	return NULL;
   return Py_BuildValue("s",_ds_userdir_path(path,home,username,ext));
 }
 
@@ -808,7 +813,7 @@ _libdspam_shutdown(PyObject *self, PyObject *args) {
 static PyMethodDef _dspam_methods[] = {
   { "userdir", _dspam_userdir, METH_VARARGS, _dspam_userdir__doc__},
   { "get_fcntl_lock", _dspam_get_fcntl_lock, METH_VARARGS, _dspam_get_fcntl_lock__doc__},
-  { "free_fcntl_unlock", _dspam_free_fcntl_lock, METH_VARARGS, _dspam_free_fcntl_lock__doc__},
+  { "free_fcntl_lock", _dspam_free_fcntl_lock, METH_VARARGS, _dspam_free_fcntl_lock__doc__},
   { "set_debug",set_debug, METH_VARARGS, set_debug__doc__ },
   { "libdspam_init",_libdspam_init, METH_VARARGS, _libdspam_init__doc__ },
   { "libdspam_shutdown",_libdspam_shutdown, METH_VARARGS, _libdspam_shutdown__doc__ },

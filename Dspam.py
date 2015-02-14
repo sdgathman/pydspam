@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.24  2015/02/14 02:24:14  customdesigned
+# Finished revamping Dspam.py, gets past initialization, then segfaults.  :-(
+#
 # Revision 2.23  2015/02/11 22:06:03  customdesigned
 # Merge pydspam-3-branch to trunk
 #
@@ -231,8 +234,10 @@ class DSpamDirectory(object):
     ds.tokenizer = self.tokenizer
     ds.training_mode = self.training
     ds.attach()
+    print 'enter',user
     yield ds
     self.totals = ds.totals
+    print 'leave',self.totals
     ds.destroy()
 
   ## Return group user belongs to.  
@@ -246,8 +251,10 @@ class DSpamDirectory(object):
   def user_files(self,user):
     "Return filenames for dict,sigs,mbox as a tuple."
     group = self.get_group(user)
+    print 'group =',group
     # find names of files
     self.user = user
+    os.makedirs(dspam.userdir(self.userdir,user))
     #self.group = group
     self.dspam_dict = dspam.userdir(self.userdir,group,'css')
     self.dspam_stats = dspam.userdir(self.userdir,group,'stats')
@@ -273,6 +280,7 @@ class DSpamDirectory(object):
 
     dspam_dict,sigfile,mbox = self.user_files(user)
 
+    print 'mbox =',mbox
     savmask = os.umask(006) # mail group must be able write dict and sig
     try:
       _seq_lock.acquire()	# for drivers that aren't thread safe

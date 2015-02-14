@@ -26,11 +26,19 @@ class DSpamTestCase(unittest.TestCase):
   def setUp(self):
     try:
       shutil.rmtree(home+'/data')
-      os.makedirs(home+'/data/'+user[0]+'/'+user[1]+'/'+user)
+      #os.makedirs(home+'/data/'+user[0]+'/'+user[1]+'/'+user)
+      os.makedirs(userdir(home,user))
     except: pass
 
   def tearDown(self):
     pass
+
+  def testUserdir(self):
+    dspam_lock = userdir(home,user,'lock')
+    with open(dspam_lock,'a') as fp:
+      get_fcntl_lock(fp.fileno())
+      #print dspam_lock
+      free_fcntl_lock(fp.fileno())
 
   def testCorpus(self):
     with dspam(DSM_PROCESS) as ds:
