@@ -10,21 +10,36 @@
 #
 
 ## @name DSPAM flags for current operation context
+# Select any combination when creating context with ctx.__init__.
 ##@{
 
-DSF_SIGNATURE           = 0x02
-DSF_BIAS                = 0x04
-DSF_NOISE               = 0x08
-DSF_WHITELIST           = 0x10
-DSF_MERGED              = 0x20
-DSF_UNLEARN             = 0x80
+  ## Signature is provided or requested.
+  DSF_SIGNATURE           = 0x02
+  ## Assign processor bias to unknown tokens.
+  DSF_BIAS                = 0x04
+  ## Apply Bayesian Noise Reduction logic.
+  DSF_NOISE               = 0x08
+  ## Use automatic whitelisting logic.
+  DSF_WHITELIST           = 0x10
+  ## Merge user/group data in memory.
+  DSF_MERGED              = 0x20
+  ## Unlearn the message.
+  DSF_UNLEARN             = 0x80
+
 ##@}
 
 ## @name DSPAM Processing mode
+# Select one when creating context with ctx.__init__
 ##@{
 
+   ## Classify and learn the supplied message using whatever training
+   # mode is specified.
    DSM_PROCESS	= 0
+   ## Identifies that  the calling function is  from a utility, and no
+   # operation will be requested.
    DSM_TOOLS	= 1
+   ## Classify the  supplied  message  only, do not learn or update any
+   # counters.
    DSM_CLASSIFY = 2
    DSM_NONE	= 0xff
 ##@}
@@ -33,8 +48,11 @@ DSF_UNLEARN             = 0x80
 # Select one for ctx.classification
 ##@{
 
+   ## The message is spam.
    DSR_ISSPAM		= 1
+   ## The message is not spam.
    DSR_ISINNOCENT	= 2
+   ## No classification is supplied by the caller.
    DSR_NONE		= 0xff
 ##@}
 

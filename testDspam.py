@@ -1,6 +1,7 @@
 import unittest
 import os
 import os.path
+import shutil
 import Dspam
 import dspam
 import bsddb
@@ -15,10 +16,10 @@ HAMS = ('samp1','test8')
 class pyDSpamTestCase(unittest.TestCase):
 
   def setUp(self):
-    try: os.makedirs(userdir)
+    try:
+      shutil.rmtree(userdir+'/data')
+      os.makedirs(userdir+'/data')
     except OSError: pass
-    for f in os.listdir(userdir):
-      os.unlink(os.path.join(userdir,f))
     ds = Dspam.DSpamDirectory(userdir)
     fp = open(ds.groupfile,'w')
     fp.write('\n'.join([ "bms:stuart,ed,alb,dmm", "unilit:sil,larry" ])+'\n')
@@ -140,7 +141,7 @@ import mime
 class tagTestCase(unittest.TestCase):
 
   def testtag(self):
-    fp = file('test/spam2')
+    fp = file('test/spam3')
     msg = mime.message_from_file(fp)
     self.assertTrue(not msg.get_payload() is None)
     sigkey = 'TESTING123'
@@ -175,10 +176,14 @@ def suite():
 
 if __name__ == '__main__':
   import sys
-  if len(sys.argv) > 1:
-    ds = Dspam.DSpamDirectory(userdir)
-    for fname in sys.argv[1:]:
-      txt = open(fname).read()
-      print ds.check_spam('tonto',txt)
-  else:
-    unittest.main()
+  dspam.libdspam_init('/usr/lib64/dspam/libhash_drv.so')
+  try:
+    if len(sys.argv) > 1:
+      ds = Dspam.DSpamDirectory(userdir)
+      for fname in sys.argv[1:]:
+	txt = open(fname).read()
+	print ds.check_spam('tonto',txt)
+    else:
+      unittest.main()
+  finally:
+    dspam.libdspam_shutdown()

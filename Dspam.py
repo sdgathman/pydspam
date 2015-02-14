@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.23  2015/02/11 22:06:03  customdesigned
+# Merge pydspam-3-branch to trunk
+#
 # Revision 2.21.2.13.2.1  2015/02/10 00:06:39  customdesigned
 # Add *_fcntl_lock and get/set/delete/verify signature.
 #
@@ -11,6 +14,7 @@ import dspam
 import bsddb
 import random
 import struct
+import urllib
 # the email package is buggy handling message attachments, so
 # use the mime package from milter instead
 import mime
@@ -32,13 +36,21 @@ def file_lock(fname):
     yield
     dspam.free_fcntl_lock(fp.fileno())
 
-
+## Create a mostly unique tag for a signature.
 def create_signature_id():
   global _seq
   _seq += 1
   r = random.randint(0,999999)
   return "%X%d%d%d"%(long(time.time()*1000),os.getpid(),_seq,r)
 
+## Add signature to database.  By default, use the signature database
+# provided by the dspam database driver.  If sigfile is supplied,
+# it is a bsdddb database that we manage ourselves (including purging
+# old entries, since dspam no longer does that).  I suspect we do not
+# really need the bsddb option, but it is there for now.
+# @param ds the dspam.ctx 
+# @param sig the signature from the dspam.ctx
+# @param sigfile if given, a bsddb database to use instead of the dspam driver
 def put_signature(ds,sig,sigfile=None):
   if sigfile:
     db = bsddb.btopen(sigfile,'c')
@@ -61,7 +73,7 @@ def put_signature(ds,sig,sigfile=None):
       key = None
   return key
 
-# add tag to a non-multipart message
+## Add tag to a non-multipart message.
 def _tag_part(msg,sigkey):
   assert not msg.is_multipart()
   tag = "\n<!DSPAM:%s>\n\n" % sigkey
@@ -78,10 +90,20 @@ def _tag_part(msg,sigkey):
     del msg["content-transfer-encoding"]
     encode_quopri(msg)
 
+## Add DSPAM tag to message. We do this the old htmlish way.
+# @param msg the original message to tag
+# @param sigkey the signature tag
+# @param prob probability for X-Dspam-Score header field if supplied
+# @param factors factors for X-Dspam-Factors header field if supplied
 def add_signature_tag(msg,sigkey,prob=None,factors=None):
   # add signature key to message
   if not prob == None:
-    msg['X-DSpam-Score'] = '%f'%prob
+    msg['X-DSpam-Score'] = '%2.5f'%prob
+  if not factors == None:
+    t = ['%d'%len(factors)]
+    for tok,val in factors:
+      t.append('%s,%2.5f'%(urllib.quote(tok),val))
+    msg['X-DSpam-Factors'] = '\n\t'.join(t)
   if not msg.is_multipart():
     _tag_part(msg,sigkey)
   else:
@@ -101,6 +123,7 @@ def add_signature_tag(msg,sigkey,prob=None,factors=None):
     else:
       msg.epilogue = "\n\n<!DSPAM:%s>\n\n" % sigkey
 
+## Extract all DSPAM tags from a message.
 def extract_signature_tags(txt):
   tags = []
   beg = 0
@@ -122,8 +145,22 @@ def extract_signature_tags(txt):
       txt = txt[:beg] + txt[end+len(endpat):]
   return (txt,tags)
 
+## Parse old group file.  This version parses the old dspam-2.6 group file,
+# which we will keep around a while for compatibility.
+# Syntax is very simple:
+# <pre>
+# group1: user1,user2
+# group2: user1,user3,user4
+# </pre>
+# returns the map:
+# <pre>
+# { 'user1': ['group1','group2'],
+#   'user2': ['group1'],
+#   'user3': ['group2'],
+#   'user4': ['group2'] }
+# </pre>
 def parse_groups(groupfile,dups=False):
-  "Parse group file, return map from user -> group or none"
+  "Parse group file, return map from user -> [group ...]"
   groups = {}
   try:
     fp = open(groupfile,'r')
@@ -138,11 +175,15 @@ def parse_groups(groupfile,dups=False):
   except: pass
   return groups
 
+## Convert message to unix end of line conventions.
+# @param txt the original message
+# @return the message with '\n' as line separator
 def convert_eol(txt):
   txt = txt.splitlines()
   txt.append('')
   return '\n'.join(txt).replace('\x00','')
 
+## Operations on the DSPAM directory.
 class DSpamDirectory(object):
 
   def _lognull(self,*msg): pass
@@ -164,17 +205,28 @@ class DSpamDirectory(object):
     ## The top tokens that determined the spam score.
     self.factors = None
     ## Default spam score algorithms to use.
-    self.algorithms = dspam.DSA_GRAHAM|dspam.DSP_GRAHAM|DSA_BURTON
+    self.algorithms = dspam.DSA_GRAHAM|dspam.DSP_GRAHAM|dspam.DSA_BURTON
     ## Default tokenizer
     self.tokenizer = dspam.DSZ_CHAIN
     ## Training mode.  Default to train on everything, since
     # that is what old dspam did, and milter depends on that.
     self.training = dspam.DST_TEFT
 
-  ## Create dspam.ctx using configured defaults.
+  ## Create dspam.ctx using configured defaults. 
+  # E.g.
+  # <pre>
+  # with self.dspam_ctx(dspam.DSM_CLASSIFY) as ds:
+  #   ds.process(txt)
+  #   self.result = ds.result
+  # </pre>
+  # @param op dspam operation mode: one of dspam.DSM_*
+  # @param flags dspam operation flags: set of dspam.DSF_*
+  # @return context manager for dspam.ctx
   @contextmanager
-  def dspam_ctx(self,op,flags=0):
-    ds = dspam.ctx(self.username,op,flags,home=self.userdir)
+  def dspam_ctx(self,op,flags=0,user=None):
+    if not user:
+      user = self.username
+    ds = dspam.ctx(user,op,flags,home=self.userdir)
     ds.algorithms = self.algorithms
     ds.tokenizer = self.tokenizer
     ds.training_mode = self.training
@@ -188,19 +240,33 @@ class DSpamDirectory(object):
   def get_group(self,user):
     return parse_groups(self.groupfile).get(user,user)
 
+  ## Set username and return common pathnames.
+  # @param user The dspam user for subsequent operations.
+  # @return commonly used pathnames: (dspam_dict,sigfile,mbox)
   def user_files(self,user):
     "Return filenames for dict,sigs,mbox as a tuple."
     group = self.get_group(user)
     # find names of files
     self.user = user
     #self.group = group
-    self.dspam_dict = dspam.userdir(self.userdir,group,'.css')
-    self.dspam_stats = dspam.userdir(self.userdir,group,'.stats')
-    self.sigfile = dspam.userdir(self.userdir,user,'.sig')
-    self.mbox = dspam.userdir(self.userdir,user,'.mbox')
+    self.dspam_dict = dspam.userdir(self.userdir,group,'css')
+    self.dspam_stats = dspam.userdir(self.userdir,group,'stats')
+    self.sigfile = dspam.userdir(self.userdir,user,'sig')
+    self.mbox = dspam.userdir(self.userdir,user,'mbox')
+    self.lock = dspam.userdir(self.userdir,user,'lock')
     return (self.dspam_dict,self.sigfile,self.mbox)
 
-# check spaminess for a message
+  ## Check spaminess of a message.
+  # 
+  # @param user	the dspam user (email account)
+  # @param txt	the message as collected from the MTA
+  # @param recipients	If provided, a list of recipients to record in 
+  #	quarantined messages to assist later delivery.
+  # @param classify	
+  # @param quarantine	Add messages classified as spam to mbox quarantine
+  #	if true.
+  # @param force_result	train as this result
+  # @return tagged message, or None if message was quarantined
   def check_spam(self,user,txt,recipients = None,
   	classify=False,quarantine=True,force_result=None):
     "Return tagged message, or None if message was quarantined."
@@ -211,7 +277,7 @@ class DSpamDirectory(object):
     try:
       _seq_lock.acquire()	# for drivers that aren't thread safe
       txt = convert_eol(txt)
-      with file_lock(dspam_dict):
+      with file_lock(self.lock):
 	with dspam_ctx(dspam.DSM_PROCESS,dspam.DSF_SIGNATURE) as ds:
 	  if classify:	# classify meant train on error in previous pydspam
 	    ds.training_mode = DST_TOE
@@ -233,7 +299,7 @@ class DSpamDirectory(object):
 	      ds.source = dspam.DSS_ERROR
 	      ds.process(None,sig=sig) # force back to SPAM
 	    self.result = force_result
-	  self.innoc(user,[sig],force_result)
+	  self._innoc(user,[sig],force_result)
 	  if not quarantine: return None
 	elif force_result == dspam.DSR_ISINNOCENT:
 	  if ds.result != dspam.DSR_ISINNOCENT:
@@ -242,23 +308,22 @@ class DSpamDirectory(object):
 	      ds.source = dspam.DSS_ERROR
 	      ds.process(None,sig=sig) # force back to INNOCENT
 	    self.result = force_result
-	  self.innoc(user,[sig],force_result)
+	  self._innoc(user,[sig],force_result)
 
 	with dspam_ctx(dspam.DSM_TOOLS) as ds:
-	  self.totals = ds.totals
 	  self.write_web_stats(ds.totals)
 	  sigkey = put_signature(ds,sig)
 	if not sigkey:
 	  self.log("WARN: tag generation failed")
 	  return txt
 
-	self.add_sig(txt,sigkey)
+	self._add_sig(txt,sigkey,recipients)
     finally:
       _seq_lock.release()
       os.umask(savmask)
     return txt
 
-  def add_sig(self,txt,sigkey):
+  def _add_sig(self,txt,sigkey,recipients=None):
     try:
       # add signature key to message
       msg = mime.message_from_file(StringIO.StringIO(txt))
@@ -279,6 +344,8 @@ class DSpamDirectory(object):
     except:
       if True or self.result == dspam.DSR_ISSPAM: raise
 
+  ## Update dspam stats stored as text for the web interface.
+  # @param totals totals obtained from dspam.ctx.totals
   def write_web_stats(self,totals):
     ( spam_learned,innocent_learned,
       spam_misclassified,innocent_misclassified,
@@ -291,84 +358,77 @@ class DSpamDirectory(object):
 	 MAX(0, (innocent_learned + innocent_classified) -
 	   (innocent_misclassified + innocent_corpusfed)),
 	 spam_misclassified, innocent_misclassified,
-	 spam_corpusfed, innocent_corpusfed);
+	 spam_corpusfed, innocent_corpusfed))
 
-  def _feedback(self,user,txt,_spam=False):
-    dspam_dict,sigfile,mbox = self.user_files(user)
-    sig = None
-    sigs = []
-    queue = False
+  def _feedback(self,user,txt,op,queue=False):
     #if len(txt) > 500000:
     #  queue = True
-    if not queue:
-      ds = dspam.dspam(dspam_dict,op,opts)
-      try:
-	ds.lock()
-      except:
-	queue = True # lock failed, queue for later
     if queue:
       # queue for later
       if not txt.startswith('From '):
         txt = 'From %s %s\n' % (user,time.ctime()) + txt
-      if is_spam:
+      if op == dspam.DSR_ISSPAM:
 	log = dspam.userdir(self.userdir,user,'spam')
       else:
 	log = dspam.userdir(self.userdir,user,'fp')
-      fp = open(log,'a')
-      fp.write(txt)
-      fp.close()
-      if not is_spam:
+      with open(log,'a') as fp:
+	fp.write(txt)
+      if not op == dspam.DSR_ISSPAM:
         # strip tags before forwarding on to user
 	txt,tags = extract_signature_tags(txt)
       return txt
+    dspam_dict,sigfile,mbox = self.user_files(user)
+    sig = None
+    sigs = []
     try:
-      txt,tags = extract_signature_tags(txt)
-      for tag in tags:
-	self.log("TAG:",tag);
-	if ds.verify_signature(tag):
-	  sig = ds.get_signature(tag)
-	  sigs.append(sig)
-	  ds.process(sig)	# reverse stats
-	  ds.delete_signature(tag)
-	  try: 
-	    self.write_web_stats(ds.totals)
-	  except: pass
-    finally:
-      ds.unlock()
-    if not sig:	# no tags in sig database, use full text
-      self.log('No tags: Adding body text as corpus.')
-      opts = dspam.DSF_CHAINED|dspam.DSF_CORPUS
-      if op == dspam.DSM_ADDSPAM:
-	ds = dspam.dspam(dspam_dict,op,opts)
+      with self.dspam_ctx(dspam.DSM_PROCESS,dspam.DSF_SIGNATURE) as ds:
+	txt,tags = extract_signature_tags(txt)
+	for tag in tags:
+	  self.log("TAG:",tag);
+	  if ds.verify_signature(tag):
+	    sig = ds.get_signature(tag)
+	    sigs.append(sig)
+	    ds.process(None,sig=sig)	# reverse stats
+	    ds.delete_signature(tag)
+	    try: 
+	      self.write_web_stats(ds.totals)
+	    except: pass
+      if not sig:	# no tags in sig database, use full text
+	self.log('No tags: Adding body text as corpus.')
+	with self.dspam_ctx(dspam.DSM_PROCESS) as ds:
+	  ds.classification = op
+	  ds.source = dspam.DSS_CORPUS
+	  ds.addattribute("IgnoreHeader","Resent-Date")
+	  ds.addattribute("IgnoreHeader","Resent-From")
+	  ds.addattribute("IgnoreHeader","Resent-To")
+	  ds.addattribute("IgnoreHeader","Resent-Subject")
+	  txt = convert_eol(txt)
+	  ds.process(txt)
+	  sig = ds.signature
+	  if sig: sigs.append(sig)
       else:
-	ds = dspam.dspam(dspam_dict,dspam.DSM_PROCESS,opts)
-      txt = convert_eol(txt)
-      msg = mime.message_from_file(StringIO.StringIO(txt))
-      del msg['Resent-Date']
-      del msg['Resent-From']
-      del msg['Resent-To']
-      del msg['Resent-Subject']
-      ds.process(msg.as_string())
-      sig = ds.signature
-      if sig: sigs.append(sig)
-    self.totals = ds.totals
-    # innoculate other users who requested it
-    self.innoc(user,sigs,op)
-    return txt
+	# innoculate other users who requested it
+	self._innoc(user,sigs,op)
+      return txt
+    except:
+      # failed, queue for later
+      return self._feedback(user,txt,op,queue=True)
 
-  def innoc(self,user,sigs,op):
+  def _innoc(self,user,sigs,op):
     if sigs:
       try:
 	innoc_file = os.path.join(self.userdir,'innoculation')
 	users = parse_groups(innoc_file,dups=True).get(user,[])
-	opts = dspam.DSF_CORPUS|dspam.DSF_CHAINED|dspam.DSF_SIGNATURE
 	for u in users:
 	  self.log('INNOC:',u)
 	  u_grp = self.get_group(u)
 	  u_dict = os.path.join(self.userdir,u_grp+'.dict')
 	  ds = dspam.dspam(u_dict,op,opts)
-	  for sig in sigs:
-	    ds.process(sig)
+	  with self.dspam_ctx(dspam.DSM_PROCESS,dspam.DSF_SIGNATURE,u) as ds:
+	    ds.classification = op
+	    ds.source = dspam.DSS_CORPUS
+	    for sig in sigs:
+	      ds.process(None,sig=sig)
       except Exception,x:
 	self.log('FAIL:',x)
         # not critical if innoculation fails, so keep going
@@ -378,7 +438,7 @@ class DSpamDirectory(object):
     self.probability = 1.0
     _seq_lock.acquire()
     try:
-      self._feedback(user,txt,dspam.DSM_ADDSPAM)
+      self._feedback(user,txt,dspam.DSR_ISSPAM)
     finally:
       _seq_lock.release()
     return None
@@ -388,6 +448,6 @@ class DSpamDirectory(object):
     self.probability = 0.0
     _seq_lock.acquire()
     try:
-      return self._feedback(user,txt,dspam.DSM_FALSEPOSITIVE)
+      return self._feedback(user,txt,dspam.DSR_ISINNOCENT)
     finally:
       _seq_lock.release()
