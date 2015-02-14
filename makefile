@@ -1,5 +1,10 @@
-VERS=pydspam-1.1.12
-V=pydspam-1_1_12
+web:
+	doxygen
+	cd doc/html; zip -r ../../doc .
+	#rsync -ravK doc/html/ spidey2.bmsi.com:/Public/pymilter
+
+VERS=pydspam-1.3
+V=pydspam-1_3
 
 tar:
 	cvs export -r $(V) -d $(VERS) pydspam
