@@ -85,6 +85,7 @@ class pyDSpamTestCase(unittest.TestCase):
       txt = open(os.path.join('test',fname)).read()
       msgs[fname] = ds.check_spam('tonto',txt)
       self.assertEqual(ds.result,dspam.DSR_ISINNOCENT)
+    self.assertEqual(ds.totals,(0,len(msgs),0,0,0,0,0,0))
 
     # check that sigs are all present
     with ds.dspam_ctx(dspam.DSM_TOOLS) as db:
@@ -96,19 +97,21 @@ class pyDSpamTestCase(unittest.TestCase):
 	self.failUnless(db.verify_signature(tag[0]))
 
     for fname in spams:
-      txt = msgs[fname]
-      ds.add_spam('tonto',txt)		# feedback spam
-      tot = ds.totals
-    self.assertEqual(tot,(len(spams),len(msgs),len(spams),0,0,0,0,0))
+      txt = ds.add_spam('tonto',msgs[fname])		# feedback spam
+      self.failUnless(txt is not None)
+      print ds.totals
+      ntxt,tag = Dspam.extract_signature_tags(txt)
+      self.assertEqual(len(tag),0,fname+' tag not removed')
+
+    self.assertEqual(ds.totals,(len(spams),len(hams),len(spams),0,0,0,0,0))
 
     # check that sigs were deleted
     dspam_dict,sigfile,mbox = ds.user_files('tonto')
-    db = bsddb.btopen(sigfile,'r')
-    for txt in spams:
-      txt = open(os.path.join('test',fname)).read()
-      tag = Dspam.extract_signature_tags(txt)
-      self.failIf(db.has_key(tag[0]))
-    db.close()
+    with ds.dspam_ctx(dspam.DSM_TOOLS) as db:
+      for fname in spams:
+	txt = msgs[fname]
+	tag = Dspam.extract_signature_tags(txt)
+	self.failIf(db.verify_signature(tag[0]))
     
     # receive and feedback spams until one gets quarantined
     while True:

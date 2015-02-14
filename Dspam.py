@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.26  2015/02/14 18:55:04  customdesigned
+# Add set_verified_user method
+#
 # Revision 2.25  2015/02/14 15:40:10  customdesigned
 # Crasher typo fixed.
 #
@@ -240,7 +243,8 @@ class DSpamDirectory(object):
     ds.training_mode = self.training
     ds.attach()
     yield ds
-    self.totals = ds.totals
+    if user == self.username:
+      self.totals = ds.totals
     ds.destroy()
 
   ## Return group user belongs to.  
@@ -385,7 +389,7 @@ class DSpamDirectory(object):
 	log = dspam.userdir(self.userdir,user,'fp')
       with open(log,'a') as fp:
 	fp.write(txt)
-      if not op == dspam.DSR_ISSPAM:
+      if op != dspam.DSR_ISSPAM:
         # strip tags before forwarding on to user
 	txt,tags = extract_signature_tags(txt)
       return txt
@@ -397,15 +401,16 @@ class DSpamDirectory(object):
 	txt,tags = extract_signature_tags(txt)
 	for tag in tags:
 	  if ds.verify_signature(tag):
+	    self.log('reverse tag',tag)
 	    sig = ds.get_signature(tag)
 	    sigs.append(sig)
 	    ds.classification = op
 	    ds.source = dspam.DSS_ERROR
 	    ds.process(None,sig=sig)	# reverse stats
 	    ds.delete_signature(tag)
-	    try: 
-	      self.write_web_stats(ds.totals)
-	    except: pass
+      try: 
+	self.write_web_stats(self.totals)
+      except: pass
       if not sig:	# no tags in sig database, use full text
 	self.log('No tags: Adding body text as corpus.')
 	with self.dspam_ctx(dspam.DSM_PROCESS) as ds:
@@ -415,17 +420,16 @@ class DSpamDirectory(object):
 	  ds.addattribute("IgnoreHeader","Resent-From")
 	  ds.addattribute("IgnoreHeader","Resent-To")
 	  ds.addattribute("IgnoreHeader","Resent-Subject")
-	  txt = convert_eol(txt)
-	  ds.process(txt)
+	  ds.process(convert_eol(txt))
 	  sig = ds.signature
 	  if sig: sigs.append(sig)
-      else:
-	# innoculate other users who requested it
-	self._innoc(user,sigs,op)
+      # innoculate other users who requested it
+      self._innoc(user,sigs,op)
       return txt
-    except:
+    except Exception,x:
       # failed, queue for later
-      return self._feedback(user,txt,op,queue=True)
+      self.log('feedback:',x)
+      self._feedback(user,txt,op,queue=True)
 
   def _innoc(self,user,sigs,op):
     if sigs:
@@ -449,7 +453,7 @@ class DSpamDirectory(object):
     self.probability = 1.0
     _seq_lock.acquire()
     try:
-      self._feedback(user,txt,dspam.DSR_ISSPAM)
+      return self._feedback(user,txt,dspam.DSR_ISSPAM)
     finally:
       _seq_lock.release()
     return None
