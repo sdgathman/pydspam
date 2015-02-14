@@ -25,6 +25,9 @@
 
 /* 
  * $Log$
+ * Revision 2.16  2015/02/14 18:55:04  customdesigned
+ * Add set_verified_user method
+ *
  * Revision 2.15  2015/02/14 15:40:10  customdesigned
  * Crasher typo fixed.
  *
@@ -426,8 +429,6 @@ _dspam_get_signature(PyObject *dspamctx, PyObject *args) {
   const char *tag;
   struct _ds_spam_signature sig;
   PyObject *o;
-  void *data;
-  Py_ssize_t dlen;
   if (!PyArg_ParseTuple(args, "s:get_signature",&tag)) return NULL;
   if (!ctx) {
     PyErr_SetString(DspamError, "Uninitialized DSPAM context");
@@ -437,17 +438,22 @@ _dspam_get_signature(PyObject *dspamctx, PyObject *args) {
     PyErr_SetString(DspamError, "Storage not attached to DSPAM context");
     return NULL;
   }
+  sig.data = NULL;
   if (_ds_get_signature(ctx,&sig,tag)) {
     PyErr_SetString(DspamError, "Failed to retreive signature");
     return NULL;
   }
   o = PyBuffer_New(sig.length);
   if (!o) return NULL;
-  if (PyObject_AsWriteBuffer(self->sig,&data,&dlen)) {
-    Py_DECREF(o);
-    return NULL;
+  if (sig.length > 0) {
+    void *data;
+    Py_ssize_t dlen;
+    if (PyObject_AsWriteBuffer(o,&data,&dlen)) {
+      Py_DECREF(o);
+      return NULL;
+    }
+    memcpy(data,sig.data,dlen);
   }
-  memcpy(data,sig.data,dlen);
   return o;
 }
 
