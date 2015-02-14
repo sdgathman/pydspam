@@ -1,5 +1,8 @@
 #!/usr/bin/env python2.6
 # $Log$
+# Revision 2.1  2015/02/11 22:06:04  customdesigned
+# Merge pydspam-3-branch to trunk
+#
 # Revision 1.1.2.3  2011/08/03 21:18:06  customdesigned
 # python2.6
 #
@@ -35,22 +38,22 @@ def log(*msg):
   for i in msg: print i,
   print
 
-for fname in sys.argv[1:]:
-  if not os.path.isfile(fname): continue
+def process_queue(fname):
+  if not os.path.isfile(fname): return False
   dirname,basename = os.path.split(fname)
   user,ext = basename.split('.')
+  if ext not in ('spam','fp'): return False
   lockname = os.path.join(dirname,user + '.retry')
   dlockname = os.path.join(dirname,user + '.lock')
-  if ext in ('spam','fp'):
-    if os.path.exists(dlockname):
-      log('Busy, finish later.')
-      break
-    try:
-      os.link(fname,lockname)
-      os.unlink(fname)
-      ds = Dspam.DSpamDirectory(dirname)
-      ds.log = log
-      fp = open(lockname,'r')
+  if os.path.exists(dlockname):
+    log('Busy, finish later.')
+    return True
+  try:
+    os.link(fname,lockname)
+    os.unlink(fname)
+    ds = Dspam.DSpamDirectory(dirname)
+    ds.log = log
+    with open(lockname,'r') as fp:
       mbox = mailbox.PortableUnixMailbox(fp,mime.MimeMessage)
       for msg in mbox:
 	log('Subject:',msg['subject'])
@@ -64,12 +67,15 @@ for fname in sys.argv[1:]:
 	    ds.false_positive(user,txt)
 	except Exception,x:
 	  log('FAIL:',x)
-	  f = open(os.path.join(dirname,user + '.fail'),'a')
-	  if not txt.startswith('From '):
-	    txt = 'From %s %s\n' % (user,time.ctime()) + txt
-	  f.write(txt)
-	  f.close()
-      fp.close()
-      os.unlink(lockname)
-    except OSError:
-      print 'Busy, try later'
+	  with open(os.path.join(dirname,user + '.fail'),'a') as f:
+	    if not txt.startswith('From '):
+	      txt = 'From %s %s\n' % (user,time.ctime()) + txt
+	    f.write(txt)
+    os.unlink(lockname)
+    return False
+  except OSError:
+    print 'Busy, try later'
+    return True
+
+for fname in sys.argv[1:]:
+  if process_queue(fname): break

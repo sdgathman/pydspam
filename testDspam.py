@@ -188,7 +188,6 @@ def suite():
 
 if __name__ == '__main__':
   import sys
-  dspam.libdspam_init('/usr/lib64/dspam/libhash_drv.so')
   try:
     if len(sys.argv) > 1:
       ds = Dspam.DSpamDirectory(userdir)

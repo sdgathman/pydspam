@@ -153,11 +153,12 @@ def DoCommand():
   config.read([os.path.join(userdir,'dspam.cfg')])
 
   if not config.getboolean('dspam','large_scale'):
-    USER = os.path.join(userdir,remote_user)
+    USER = os.path.join(userdir,'data',remote_user)
   elif len(remote_user) > 1:
-    USER = os.path.join(userdir,remote_user[0:1],remote_user[1:1],remote_user)
+    USER = os.path.join(userdir,
+    	'data',remote_user[0:1],remote_user[1:1],remote_user)
   else:
-    USER = os.path.join(userdir,remote_user,remote_user)
+    USER = os.path.join(userdir,'data',remote_user,remote_user)
 
   config.read([USER + '.cfg'])
   CONFIG = dict(config.items('dspam'))

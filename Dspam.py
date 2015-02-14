@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.28  2015/02/14 21:38:13  customdesigned
+# Passes test suite.
+#
 # Revision 2.27  2015/02/14 21:14:47  customdesigned
 # Much farther through test suite.
 #
@@ -35,6 +38,8 @@ import thread
 
 from email.Encoders import encode_base64, encode_quopri
 from contextlib import contextmanager
+
+dspam.libdspam_init('/usr/lib64/dspam/libhash_drv.so')
 
 VERSION = "1.3" # abi compatibility, not package version
 
