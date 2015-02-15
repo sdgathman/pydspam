@@ -11,7 +11,7 @@ require {
 	type dspam_var_lib_t;
 	class capability { setuid setgid dac_override };
 	class dir { read write add_name search remove_name };
-	class file { create read open getattr write rename unlink setattr };
+	class file { create read open getattr write rename unlink setattr append };
 }
 
 #============= httpd_t ==============
@@ -27,7 +27,7 @@ allow httpd_t var_log_t:file read;
 allow httpd_sys_script_t dspam_var_lib_t:dir { search };
 allow httpd_sys_script_t httpd_dspam_rw_content_t:dir { search write remove_name add_name };
 allow httpd_sys_script_t dspam_var_lib_t:file { read open getattr };
-allow httpd_sys_script_t httpd_dspam_rw_content_t:file { read open getattr write rename create unlink setattr };
+allow httpd_sys_script_t httpd_dspam_rw_content_t:file { read open getattr write rename create unlink setattr append };
 allow httpd_sys_script_t httpd_log_t:dir { write add_name };
 allow httpd_sys_script_t httpd_log_t:file create;
 allow httpd_sys_script_t self:capability setuid;

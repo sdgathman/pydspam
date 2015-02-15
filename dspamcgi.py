@@ -151,6 +151,7 @@ def DoCommand():
   FORM = cgi.FieldStorage()
   userdir = config.get('dspam','userdir')
   config.read([os.path.join(userdir,'dspam.cfg')])
+  userdir = config.get('dspam','userdir')
 
   if not config.getboolean('dspam','large_scale'):
     USER = os.path.join(userdir,'data',remote_user)
@@ -604,7 +605,7 @@ def Welcome():
   FILE = open(USER+".stats",'r')
   spam = FILE.readline()
   FILE.close()
-  spam,innocent,misses,fp = map(int,spam.split(','))
+  spam,innocent,misses,fp,cs,ci = map(int,spam.split(','))
   total = spam + innocent
 
   # Prepare Welcome Header
