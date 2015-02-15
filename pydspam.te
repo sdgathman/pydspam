@@ -7,6 +7,7 @@ require {
 	type var_log_t;
 	type httpd_sys_script_t;
 	type httpd_t;
+	type httpd_dspam_rw_content_t;
 	type dspam_var_lib_t;
 	class capability { setuid setgid dac_override };
 	class dir { read write add_name search remove_name };
@@ -23,8 +24,10 @@ allow httpd_t var_log_t:file read;
 #
 # Allow pydspam.cgi to be invoked vi suexec, and manipulate /var/lib/dspam
 #
-allow httpd_sys_script_t dspam_var_lib_t:dir { search write remove_name add_name };
-allow httpd_sys_script_t dspam_var_lib_t:file { read open getattr write rename create unlink setattr };
+allow httpd_sys_script_t dspam_var_lib_t:dir { search };
+allow httpd_sys_script_t httpd_dspam_rw_content_t:dir { search write remove_name add_name };
+allow httpd_sys_script_t dspam_var_lib_t:file { read open getattr };
+allow httpd_sys_script_t httpd_dspam_rw_content_t:file { read open getattr write rename create unlink setattr };
 allow httpd_sys_script_t httpd_log_t:dir { write add_name };
 allow httpd_sys_script_t httpd_log_t:file create;
 allow httpd_sys_script_t self:capability setuid;

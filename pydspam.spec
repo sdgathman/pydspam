@@ -1,5 +1,5 @@
 %define __python python2.6
-%define pythonbase python26
+%define pythonbase python
 %define cgibin /var/www/cgi-bin
 %define htmldir /var/www/html
 
@@ -13,7 +13,7 @@ Group: Development/Libraries
 Source: http://bmsi.com/python/pydspam-%{version}.tar.gz
 #Patch: pydspam.patch
 Buildroot: /var/tmp/pydspam-root
-Requires: dspam %{pythonbase}
+Requires: dspam >= 3.10 %{pythonbase}
 BuildRequires: %{pythonbase}-devel dspam-devel
 Obsoletes: dspam-python
 
@@ -102,9 +102,9 @@ rm -rf $RPM_BUILD_ROOT
 %attr(0775,root,root)/usr/local/sbin/*
 %attr(0755,dspam,dspam)%{htmldir}/dspam/dspamcgi.py
 %{cgibin}/pydspam.cgi
-/usr/lib/%{__python}/site-packages/Dspam.pyo
-%{htmldir}/dspam/dspamcgi.pyc
-%{htmldir}/dspam/dspamcgi.pyo
+#/usr/lib/%{__python}/site-packages/Dspam.pyo
+#%{htmldir}/dspam/dspamcgi.pyc
+#%{htmldir}/dspam/dspamcgi.pyo
 
 %changelog
 * Thu Feb 05 2015 Stuart Gathman <stuart@bmsi.com> 1.3-1

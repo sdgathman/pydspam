@@ -156,7 +156,7 @@ def DoCommand():
     USER = os.path.join(userdir,'data',remote_user)
   elif len(remote_user) > 1:
     USER = os.path.join(userdir,
-    	'data',remote_user[0:1],remote_user[1:1],remote_user)
+    	'data',remote_user[0:1],remote_user[1:2],remote_user,remote_user)
   else:
     USER = os.path.join(userdir,'data',remote_user,remote_user)
 

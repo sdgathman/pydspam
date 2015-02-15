@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.29  2015/02/14 22:40:53  customdesigned
+# Initial 3.10 test
+#
 # Revision 2.28  2015/02/14 21:38:13  customdesigned
 # Passes test suite.
 #
@@ -301,11 +304,6 @@ class DSpamDirectory(object):
       txt = convert_eol(txt)
       with file_lock(self.lock):
 	with self.dspam_ctx(dspam.DSM_PROCESS,dspam.DSF_SIGNATURE) as ds:
-	  if classify:	# classify meant train on error in previous pydspam
-	    ds.training_mode = DST_TOE
-	  #if force_result:
-	  #  ds.classification = force_result
-	  #  ds.source = DSS_INOCULATION
 	  ds.process(txt)
 	  self.probability = ds.probability
 	  self.result = ds.result
@@ -315,7 +313,7 @@ class DSpamDirectory(object):
 	  if self.result == dspam.DSR_ISINNOCENT: return txt
 	  if not quarantine: return None
 	elif force_result == dspam.DSR_ISSPAM:
-	  if ds.result != dspam.DSR_ISSPAM:
+	  if self.result != dspam.DSR_ISSPAM:
 	    with dspam_ctx(dspam.DSM_PROCESS,dspam.DSF_SIGNATURE) as ds:
 	      ds.classification = dspam.DSR_ISSPAM
 	      ds.source = dspam.DSS_ERROR
@@ -324,7 +322,7 @@ class DSpamDirectory(object):
 	  self._innoc(user,[sig],force_result)
 	  if not quarantine: return None
 	elif force_result == dspam.DSR_ISINNOCENT:
-	  if ds.result != dspam.DSR_ISINNOCENT:
+	  if self.result != dspam.DSR_ISINNOCENT:
 	    with dspam_ctx(dspam.DSM_PROCESS,dspam.DSF_SIGNATURE) as ds:
 	      ds.classification = dspam.DSR_ISINNOCENT
 	      ds.source = dspam.DSS_ERROR

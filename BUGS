@@ -1,3 +1,10 @@
+Need to load storage drive via config - currently hardwired for 
+x86_64 linux with hash driver.
+
+Dspam Test case for classify=True
+
+Test for large_scale set incorrectly (USER doesn't exist)
+
 "Unchecked not spam" treats any new messages coming in since the
 page was refreshed as unchecked.  If mbox has been updated since
 refresh, refresh again and have user check new messages.  Or maybe
