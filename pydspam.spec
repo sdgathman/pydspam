@@ -6,7 +6,7 @@
 Summary: A Python wrapper for Dspam Bayesian spam filtering
 Name: %{pythonbase}-pydspam
 Version: 1.3
-Release: 1%{dist}
+Release: 2%{dist}
 License: GPL
 URL: http://www.bmsi.com/python/dspam.html
 Group: Development/Libraries
@@ -69,6 +69,8 @@ exec /usr/sbin/suexec dspam dspam dspamcgi.py
 EOF
 cp -p dspamcgi.py $HTMLDIR/dspam
 chmod 0755 $HTMLDIR/dspam/dspamcgi.py $CGIDIR/pydspam.cgi
+cp -p template.html $HTMLDIR/dspam
+cp -p Maxwells.gif $HTMLDIR/dspam/logo.gif
 
 # install python module
 %{__python} setup.py install --root=$RPM_BUILD_ROOT --record=INSTALLED_FILES
@@ -101,12 +103,17 @@ rm -rf $RPM_BUILD_ROOT
 %attr(0775,root,root)/usr/local/bin/*
 %attr(0775,root,root)/usr/local/sbin/*
 %attr(0755,dspam,dspam)%{htmldir}/dspam/dspamcgi.py
+%config %{htmldir}/dspam/template.html
+%config %{htmldir}/dspam/logo.gif
 %{cgibin}/pydspam.cgi
 #/usr/lib/%{__python}/site-packages/Dspam.pyo
 #%{htmldir}/dspam/dspamcgi.pyc
 #%{htmldir}/dspam/dspamcgi.pyo
 
 %changelog
+* Thu Feb 15 2015 Stuart Gathman <stuart@bmsi.com> 1.3-2
+- Clean up various typos and packaging problems.
+
 * Thu Feb 05 2015 Stuart Gathman <stuart@bmsi.com> 1.3-1
 - New dspam-3.10 API
 

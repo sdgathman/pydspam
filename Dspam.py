@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.31  2015/02/15 18:34:14  customdesigned
+# More fixes from production testing.
+#
 # Revision 2.30  2015/02/15 05:36:24  customdesigned
 # Fix classify=True, update selinux policy to match epel dspam-3.10.2 package.
 #
@@ -343,19 +346,23 @@ class DSpamDirectory(object):
 	    self.result = force_result
 	  self._innoc(user,[sig],force_result)
 
-	with self.dspam_ctx(dspam.DSM_TOOLS) as ds:
-	  self.write_web_stats(ds.totals)
-	  sigkey = put_signature(ds,sig)
-	if not sigkey:
-	  self.log("WARN: tag generation failed")
-	  return txt
-
-	return self._add_sig(txt,sigkey,recipients)
+	return self._add_sig(txt,sig,recipients)
     finally:
       _seq_lock.release()
       os.umask(savmask)
 
-  def _add_sig(self,txt,sigkey,recipients=None):
+  ## Add signature key to message, and quarantine if spammy.
+  # The results of the last check_spam as used.
+  # @param txt the message
+  # @param sig the signature
+  # @param recipients list of recipients for later delivery
+  def _add_sig(self,txt,sig,recipients=None):
+    with self.dspam_ctx(dspam.DSM_TOOLS) as ds:
+      self.write_web_stats(ds.totals)
+      sigkey = put_signature(ds,sig)
+    if not sigkey:
+      self.log("WARN: tag generation failed")
+      return txt
     try:
       # add signature key to message
       msg = mime.message_from_file(StringIO.StringIO(txt))
@@ -465,6 +472,7 @@ class DSpamDirectory(object):
 	self.log('FAIL:',x)
         # not critical if innoculation fails, so keep going
 
+  ## 
   def add_spam(self,user,txt):
     "Report a message as spam."
     self.probability = 1.0
