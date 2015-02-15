@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.32  2015/02/15 22:23:25  customdesigned
+# Fix packaging bugs.
+#
 # Revision 2.31  2015/02/15 18:34:14  customdesigned
 # More fixes from production testing.
 #
@@ -310,9 +313,9 @@ class DSpamDirectory(object):
       txt = convert_eol(txt)
       with file_lock(self.lock):
 	if classify:
-	  op = dspam.DSM_PROCESS
-	else:
 	  op = dspam.DSM_CLASSIFY
+	else:
+	  op = dspam.DSM_PROCESS
 	with self.dspam_ctx(op,dspam.DSF_SIGNATURE) as ds:
 	  ds.process(txt)
 	  self.probability = ds.probability
