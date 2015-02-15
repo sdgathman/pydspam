@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.30  2015/02/15 05:36:24  customdesigned
+# Fix classify=True, update selinux policy to match epel dspam-3.10.2 package.
+#
 # Revision 2.29  2015/02/14 22:40:53  customdesigned
 # Initial 3.10 test
 #
@@ -303,7 +306,11 @@ class DSpamDirectory(object):
       _seq_lock.acquire()	# for drivers that aren't thread safe
       txt = convert_eol(txt)
       with file_lock(self.lock):
-	with self.dspam_ctx(dspam.DSM_PROCESS,dspam.DSF_SIGNATURE) as ds:
+	if classify:
+	  op = dspam.DSM_PROCESS
+	else:
+	  op = dspam.DSM_CLASSIFY
+	with self.dspam_ctx(op,dspam.DSF_SIGNATURE) as ds:
 	  ds.process(txt)
 	  self.probability = ds.probability
 	  self.result = ds.result
@@ -312,9 +319,15 @@ class DSpamDirectory(object):
 	if classify:
 	  if self.result == dspam.DSR_ISINNOCENT: return txt
 	  if not quarantine: return None
+	  with self.dspam_ctx(dspam.DSM_PROCESS,dspam.DSF_SIGNATURE) as ds:
+	    ds.process(txt)
+	    self.probability = ds.probability
+	    self.result = ds.result
+	    self.factors = ds.factors
+	    sig = ds.signature
 	elif force_result == dspam.DSR_ISSPAM:
 	  if self.result != dspam.DSR_ISSPAM:
-	    with dspam_ctx(dspam.DSM_PROCESS,dspam.DSF_SIGNATURE) as ds:
+	    with self.dspam_ctx(dspam.DSM_PROCESS,dspam.DSF_SIGNATURE) as ds:
 	      ds.classification = dspam.DSR_ISSPAM
 	      ds.source = dspam.DSS_ERROR
 	      ds.process(None,sig=sig) # force back to SPAM
@@ -323,7 +336,7 @@ class DSpamDirectory(object):
 	  if not quarantine: return None
 	elif force_result == dspam.DSR_ISINNOCENT:
 	  if self.result != dspam.DSR_ISINNOCENT:
-	    with dspam_ctx(dspam.DSM_PROCESS,dspam.DSF_SIGNATURE) as ds:
+	    with self.dspam_ctx(dspam.DSM_PROCESS,dspam.DSF_SIGNATURE) as ds:
 	      ds.classification = dspam.DSR_ISINNOCENT
 	      ds.source = dspam.DSS_ERROR
 	      ds.process(None,sig=sig) # force back to INNOCENT
