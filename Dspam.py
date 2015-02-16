@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.33  2015/02/15 22:49:46  customdesigned
+# Another classify typo fixed
+#
 # Revision 2.32  2015/02/15 22:23:25  customdesigned
 # Fix packaging bugs.
 #
@@ -33,6 +36,15 @@
 # Revision 2.21.2.13.2.1  2015/02/10 00:06:39  customdesigned
 # Add *_fcntl_lock and get/set/delete/verify signature.
 #
+#
+
+## @package Dspam
+# A high level framework for using dspam from a python application.
+#
+# The Dspam module currently hardwires the "hash" storage driver.  This driver
+# generally requires that your application have an effective group id of
+# "mail", and have a umask that will allow other applications in the mail group
+# read/write/execute access.
 #
 
 import os
@@ -218,6 +230,9 @@ class DSpamDirectory(object):
 
   def _lognull(self,*msg): pass
 
+  ## Initialize DSpamDirectory.  The base directory is something like
+  # <code>/var/lib/dspam</code>.
+  # @param userdir the DSPAM base directory
   def __init__(self,userdir):
     ## DSPAM home.  Base directory where dspam stores dictionaries and configs.
     self.userdir = userdir
@@ -231,9 +246,9 @@ class DSpamDirectory(object):
     ## The dspam user current being processed
     self.username = None
     ## The spam score from 0.0 to 1.0
-    self.probability = None
+    self.probability = 0.0
     ## The top tokens that determined the spam score.
-    self.factors = None
+    self.factors = []
     ## Default spam score algorithms to use.
     self.algorithms = dspam.DSA_GRAHAM|dspam.DSP_GRAHAM|dspam.DSA_BURTON
     ## Default tokenizer
@@ -241,6 +256,17 @@ class DSpamDirectory(object):
     ## Training mode.  Default to train on everything, since
     # that is what old dspam did, and milter depends on that.
     self.training = dspam.DST_TEFT
+    ## DSPAM totals for user from last operation.
+    self.totals = (0,0,0,0,0,0,0,0)
+    ## Classification from last check_spam.
+    self.result = dspam.DSR_NONE
+    ## Path of quarantine mailbox used by pydspam for user.
+    # The dspam LDA and other libdspam clients may have different
+    # quarantines.
+    self.mbox = None
+    ## Path of lock file used by libdspam.
+    # @see dspam.get_fcntl_lock
+    self.lock = None
 
   ## Create dspam.ctx using configured defaults. 
   # E.g.
@@ -475,7 +501,13 @@ class DSpamDirectory(object):
 	self.log('FAIL:',x)
         # not critical if innoculation fails, so keep going
 
-  ## 
+  ## Report a false negative.  Tell DSPAM a message it though was innocent
+  # is actually spam.  DSPAM looks for signature keys, and looks up
+  # stored signatures with them.  It trains DSPAM with the signature,
+  # setting the source to DSS_ERROR.  If no signature is found, it adds the
+  # spam as a spam "corpus".
+  # @param user the DSPAM user 
+  # @param txt the spam message
   def add_spam(self,user,txt):
     "Report a message as spam."
     self.probability = 1.0
@@ -486,6 +518,13 @@ class DSpamDirectory(object):
       _seq_lock.release()
     return None
 
+  ## Report a false positive.  Tell DSPAM a message it though was spam
+  # is actually innocent.  DSPAM looks for signature keys, and looks up
+  # stored signatures with them.  It trains DSPAM with the signature,
+  # setting the source to DSS_ERROR.  If no signature is found, it adds the
+  # message as an innocent "corpus" (DSS_CORPUS).
+  # @param user the DSPAM user 
+  # @param txt the innocent message
   def false_positive(self,user,txt):
     "Report a false positive, return message with tags removed."
     self.probability = 0.0
