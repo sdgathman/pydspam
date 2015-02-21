@@ -38,5 +38,6 @@ allow httpd_sys_script_t self:capability { setgid dac_override };
 # Allow logrotate to rotate files in /var/lib/dspam
 #
 allow logrotate_t default_t:dir read;
-allow logrotate_t dspam_var_lib_t:dir { read write remove_name add_name };
-allow logrotate_t dspam_var_lib_t:file { open read write getattr rename unlink create setattr };
+allow logrotate_t dspam_var_lib_t:dir { search };
+allow logrotate_t httpd_dspam_rw_content_t:dir { read write remove_name add_name };
+allow logrotate_t httpd_dspam_rw_content_t:file { open read write getattr rename unlink create setattr };
