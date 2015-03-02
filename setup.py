@@ -7,6 +7,11 @@ setup(name = "pydspam", version = "1.3",
 This is a python extension module to enable python scripts to
 use libdspam functionality.  A higher level wrapper handles a
 signature database and quarantine mbox in a user directory.
+
+This release updates pydspam for dspam-3.10.2. Because the libdspam API changed
+drastically since dspam-2.6, this is considered an Alpha release. I do have it
+running on a small (one user) production system that volunteered to be a guinea
+pig.
 """,
 	author="Stuart D. Gathman",
 	author_email="stuart@bmsi.com",

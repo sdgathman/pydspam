@@ -31,12 +31,23 @@ A python extension module provides access to the DSPAM core engine from
 python.  Additional DSPAM utilities written in python are provided.
 Install this if you wish to use DSPAM from python.
 
+%package selinux
+Summary: SELinux policy module for pydspam
+Group: System Environment/Base
+Requires: policycoreutils, selinux-policy, %{name}
+BuildRequires: policycoreutils, checkpolicy
+
+%description selinux
+SELinux policy module for using pydspam with apache with selinux enforcing
+
 %prep
 %setup -q -n pydspam-%{version}
 #%patch -p0 -b .bms
 
 %build
 env CFLAGS="$RPM_OPT_FLAGS" %{__python} setup.py build
+checkmodule -m -M -o pydspam.mod pydspam.te
+semodule_package -o pydspam.pp -m pydspam.mod
 
 %install
 rm -rf $RPM_BUILD_ROOT
@@ -91,6 +102,10 @@ cp -p pydspam_process.py $RPM_BUILD_ROOT/usr/local/sbin
 mkdir -p $RPM_BUILD_ROOT/etc/logrotate.d
 cp -p pydspam.logrotate $RPM_BUILD_ROOT/etc/logrotate.d/pydspam
 
+# install selinux modules
+mkdir -p %{buildroot}%{_datadir}/selinux/targeted
+cp -p pydspam.pp %{buildroot}%{_datadir}/selinux/targeted
+
 %clean
 rm -rf $RPM_BUILD_ROOT
 
@@ -110,9 +125,22 @@ rm -rf $RPM_BUILD_ROOT
 #%{htmldir}/dspam/dspamcgi.pyc
 #%{htmldir}/dspam/dspamcgi.pyo
 
+%files selinux
+%doc pydspam.te
+%{_datadir}/selinux/targeted/*
+
+%post selinux
+/usr/sbin/semodule -s targeted -i %{_datadir}/selinux/targeted/pydspam.pp \
+	&>/dev/null || :
+
+%postun selinux
+if [ $1 -eq 0 ] ; then
+/usr/sbin/semodule -s targeted -r pydspam &> /dev/null || :
+fi
+
 %changelog
 * Thu Feb 15 2015 Stuart Gathman <stuart@bmsi.com> 1.3-3
-- Fix selinux policy for alerts file for webui.
+- Fix selinux policy for alerts file for webui, add selinux subpackage.
 
 * Thu Feb 15 2015 Stuart Gathman <stuart@bmsi.com> 1.3-2
 - Clean up various typos and packaging problems.

@@ -29,7 +29,7 @@ ALT="Viewable With Any Browser" BORDER="0"></A>
   Stuart D. Gathman</a><br>
 This web page is written by Stuart D. Gathman<br>and<br>sponsored by
 <a href="http://www.bmsi.com">Business Management Systems, Inc.</a> <br>
-Last updated Jul 26, 2005</h4>
+Last updated Feb 15, 2015</h4>
 
 <a href="#download">Downloads</a>,<a href="http://sourceforge.net/tracker/?group_id=139894&atid=744815">Bugs</a>,
 <a href="#triage">Header Triage</a>
@@ -38,10 +38,9 @@ Last updated Jul 26, 2005</h4>
 This project provides <a href="http://www.python.org">Python</a>
 support for fast sophisticated bayesian
 message filtering.  It is based on the excellent 
-<a href="http://www.nuclearelephant.com/projects/dspam/">DSPAM</a> project
+<a href="http://www.nuclearelephant.com/">DSPAM</a> project
 provided by
-<a href="mailto:j%6F%6E%61%74h%61%6E%40%6E%65%74work%64w%65%65%62%73%2E%63%6F%6D">Jonathan A. Zdziarski</a>.  I have moved RPMS for dspam to a
-<a href="/libdspam/dspam.html">separate project</a>.
+<a href="mailto:j%6F%6E%61%74h%61%6E%40%6E%65%74work%64w%65%65%62%73%2E%63%6F%6D">Jonathan A. Zdziarski</a>.  
 Neither BMS or Stuart Gathman are affiliated with Jonathan Zdziarski 
 or <a href="http://networkdweebs.com/">Network Dweebs</a>, except as
 enthusiastic users of their free product.  Dspam was chosen because
@@ -54,7 +53,7 @@ What is DSPAM?  Here is an excerpt from
 the DSPAM project README:
 
 <blockquote>
-<a href="http://www.nuclearelephant.com/projects/dspam/">DSPAM</a> is an
+<a href="http://www.nuclearelephant.com/">DSPAM</a> is an
 open-source, freely available anti-spam solution designed to combat
 unsolicited commercial email using Baye's theorem of combined probabilities.
 The result is an administratively maintenance free system capable of learning 
@@ -78,34 +77,11 @@ Many new approaches have also been implemented by DSPAM.
 </blockquote>
 <p>
 
-<h3> DSPAM RPM support for Python </h3>
-
-<img src="python55.gif" align=left alt="A Python">
-In <a href="/libdspam/dspam.html">dspam-2.6 RPMS</a>, the
-<a name=python>pydspam</a> project is included as the dspam-python sub-package
-which is built from the pydspam source for pydspam version prior to 1.1.5.  If
-you don't wish to build the python package, set the <code>build_python</code>
-macro to <code>0</code> at the top of the RPM spec file in the source RPM.  
-<p>
-Beginning with pydspam-1.1.5, pydspam is its own RPM which obsoletes
-dspam-python.  The dspam-python or pydspam binary RPM provides a <a
-href="//www.python.org">Python</a> module which wraps the dspam core engine
-(libdspam).  Some of the dspam command line
-tools are reimplemented in Python to illustrate use of the library.  (Installed
-as documentation by the RPM.)  
-
-A new tool, pydspam_anal.py, shows the contribution each token of a 
-message makes to the total DSPAM score.
-<p>
-In dspam-2.8, pydspam has its own RPM.
-
 <h2> <a name=triage>Header Triage with Dspam and Python Milter</a> </h2>
 
 For a really powerful mail filtering system, combine the DSPAM Python
 module with <a href="http://www.sendmail.org">sendmail</a> and
-<a href="milter.html">Python Milter</a>.  For instance, here is
-a simple change to milter-0.5.5 I am testing:
-<a href="milter-bms.patch">Patch to bms.py from milter-0.5.5</a>.
+<a href="milter.html">Python Milter</a>.  
 <p>
 The dictionary is the one maintained by the dspam delivery agent installed
 with the dspam package.  Scanning the headers in the milter allows us
@@ -135,10 +111,10 @@ is because some of our customers use blacklisted ISPs because they
 are the only broadband available in their area.  Black hole lists like
 to blacklist entire ISPs, including innocent customers who have no
 other choice (other than dialup) for connectivity.
-With a little python programming to collect data, DSPAM will allow us to
+With a little python programming to collect data, pydspam allows us to
 automate building the list of banned IPs / domains.
 <p>
-The header triage feature will be in milter-0.5.6.  I envision a complete
+The header triage feature is in milter-0.8.18.  I envision a complete
 milter based implementation of dspam which appoints selected 
 email destinations as 'moderators'.  The MDA approach currently used
 by dspam requires all users to diligently classify their email to train
