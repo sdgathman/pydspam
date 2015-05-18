@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.34  2015/02/16 00:02:42  customdesigned
+# Doc updates.
+#
 # Revision 2.33  2015/02/15 22:49:46  customdesigned
 # Another classify typo fixed
 #
@@ -63,7 +66,23 @@ import thread
 from email.Encoders import encode_base64, encode_quopri
 from contextlib import contextmanager
 
-dspam.libdspam_init('/usr/lib64/dspam/libhash_drv.so')
+def _configure_dict():
+  a = dspam.CONFIGURE_ARGS.split("' '")
+  if a[0].startswith(" '"): a[0] = a[0][2:]
+  if a[-1].endswith("'"): a[-1] = a[-1][:-1]
+  d = {}
+  for s in a:
+    t = s.split('=',1)
+    k = t[0]
+    if len(t) == 1:
+      d[k] = True
+    else:
+      d[k] = t[1]
+  return d
+
+CONFIGURE_ARGS = _configure_dict()
+
+dspam.libdspam_init(CONFIGURE_ARGS['--libdir']+'/dspam/libhash_drv.so')
 
 VERSION = "1.3" # abi compatibility, not package version
 

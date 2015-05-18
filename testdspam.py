@@ -187,7 +187,8 @@ class DSpamTestCase(unittest.TestCase):
 def suite(): return unittest.makeSuite(DSpamTestCase,'test')
 
 if __name__ == '__main__':
-  libdspam_init('/usr/lib64/dspam/libhash_drv.so')
+  from Dspam import CONFIGURE_ARGS
+  #libdspam_init('/dspam/libhash_drv.so')
   try:
     unittest.main()
   finally:

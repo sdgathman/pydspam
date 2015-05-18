@@ -25,6 +25,9 @@
 
 /* 
  * $Log$
+ * Revision 2.17  2015/02/14 19:23:37  customdesigned
+ * Another crasher typo fixed.
+ *
  * Revision 2.16  2015/02/14 18:55:04  customdesigned
  * Add set_verified_user method
  *
@@ -910,6 +913,7 @@ initdspam(void) {
    Py_INCREF(&dspam_Type);
    if (PyDict_SetItemString(d,"dspam", (PyObject *)&dspam_Type)) return;
    if (PyDict_SetItemString(d,"ctx", (PyObject *)&dspam_Type)) return;
+   PyModule_AddStringMacro(m,CONFIGURE_ARGS);
 
 #define CONST(n) PyModule_AddIntConstant(m,#n, n)
 /* DSPAM Flags */
