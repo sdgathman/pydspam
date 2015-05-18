@@ -285,3 +285,10 @@ def libdspam_shutdown(): pass
 # level of the library API at the time pydspam was compiled.
 # This is <b>not</b> necessarily the same as the version of dspam running.
 LIBDSPAM_VERSION = (3,6,0)
+
+## Arguments passed to configure when building libdspam.
+# The format is a space separated list of quoted strings.  The example 
+# is a build for x86_64-redhat-linux-gnu.
+# @since 1.3.1
+CONFIGURE_ARGS = " '--build=x86_64-redhat-linux-gnu' '--host=x86_64-redhat-linux-gnu' '--target=x86_64-redhat-linux-gnu' '--program-prefix=' '--prefix=/usr' '--exec-prefix=/usr' '--bindir=/usr/bin' '--sbindir=/usr/sbin' '--datadir=/usr/share' '--includedir=/usr/include' '--libdir=/usr/lib64' '--libexecdir=/usr/libexec' '--localstatedir=/var' '--sharedstatedir=/var/lib' '--mandir=/usr/share/man' '--infodir=/usr/share/info' '--enable-long-usernames' '--enable-syslog' '--enable-large-scale' '--enable-clamav' '--disable-domain-scale' '--disable-homedir' '--enable-virtual-users' '--enable-preferences-extension' '--with-mysql-includes=/usr/include/mysql' '--with-mysql-libraries=/usr/lib64/mysql' '--with-pgsql-includes=/usr/include/pgsql' '--with-pgsql-libraries=/usr/lib64' '--enable-daemon' '--enable-external-lookup' '--with-storage-driver=hash_drv,mysql_drv,pgsql_drv,sqlite3_drv' '--with-dspam-home=/var/lib/dspam' '--with-dspam-owner=dspam' '--with-dspam-group=mail' '--with-dspam-home-group=mail' '--with-dspam-mode=2511' '--with-logdir=/var/log/dspam' '--sysconfdir=/etc' 'build_alias=x86_64-redhat-linux-gnu' 'host_alias=x86_64-redhat-linux-gnu' 'target_alias=x86_64-redhat-linux-gnu' 'CFLAGS=-O2 -g -pipe -Wall -Wp,-D_FORTIFY_SOURCE=2 -fexceptions -fstack-protector --param=ssp-buffer-size=4 -m64 -mtune=generic'"
+

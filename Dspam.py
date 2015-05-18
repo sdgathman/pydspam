@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.36  2015/05/18 01:39:33  customdesigned
+# Add PKGLIBDIR
+#
 # Revision 2.35  2015/05/18 01:11:11  customdesigned
 # Use --libdir CONFIGURE_ARG to compute driver dir.
 #
@@ -83,12 +86,20 @@ def _configure_dict():
       d[k] = t[1]
   return d
 
+## Arguments passed to configure when building libdspam as a dict.
+# Flag arguments are mapped to True.
+# @see dspam.CONFIGURE_ARGS
+# @since 1.3.1
 CONFIGURE_ARGS = _configure_dict()
+
+## The directory where package specific dynamic libraries are stored.
+# This includes drivers and plugins.
+# @since 1.3.1
 PKGLIBDIR = os.path.join(CONFIGURE_ARGS['--libdir'],'dspam')
 
 dspam.libdspam_init(os.path.join(PKGLIBDIR,'libhash_drv.so'))
 
-VERSION = "1.3" # abi compatibility, not package version
+VERSION = "1.3.1" # abi compatibility, not package version
 
 _seq_lock = thread.allocate_lock()
 _seq = 0
