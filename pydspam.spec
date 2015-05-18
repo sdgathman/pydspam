@@ -139,6 +139,9 @@ if [ $1 -eq 0 ] ; then
 fi
 
 %changelog
+* Sun May 17 2015 Stuart Gathman <stuart@bmsi.com> 1.3.1-1
+- Compute driver directory from --libdir CONFIGURE_ARG
+
 * Thu Feb 15 2015 Stuart Gathman <stuart@bmsi.com> 1.3-3
 - Fix selinux policy for alerts file for webui, add selinux subpackage.
 

@@ -1,5 +1,6 @@
 Here is a history of user visible changes to pydspam:
 
+1.3.1	Use --libdir to configure driver dir
 1.3	Update to libdspam-3.10 api
 
 1.1.9	Forced result option for honeypot accounts
