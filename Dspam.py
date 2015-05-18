@@ -1,5 +1,8 @@
 #
 # $Log$
+# Revision 2.35  2015/05/18 01:11:11  customdesigned
+# Use --libdir CONFIGURE_ARG to compute driver dir.
+#
 # Revision 2.34  2015/02/16 00:02:42  customdesigned
 # Doc updates.
 #
@@ -81,8 +84,9 @@ def _configure_dict():
   return d
 
 CONFIGURE_ARGS = _configure_dict()
+PKGLIBDIR = os.path.join(CONFIGURE_ARGS['--libdir'],'dspam')
 
-dspam.libdspam_init(CONFIGURE_ARGS['--libdir']+'/dspam/libhash_drv.so')
+dspam.libdspam_init(os.path.join(PKGLIBDIR,'libhash_drv.so'))
 
 VERSION = "1.3" # abi compatibility, not package version
 
