@@ -36,7 +36,7 @@ except: from ConfigParser import ConfigParser
 ## Configuration
 #
 CONFIG = {
-  'userdir': "/etc/mail/dspam",
+  'userdir': "/var/lib/dspam",
   'me': "pydspam.cgi",
   'domain': "mail.bmsi.com",
   'dspam': "SMTP",	# send false positives via SMTP to ham@DOMAIN
