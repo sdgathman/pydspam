@@ -262,6 +262,9 @@ def NotSpam(multi=False):
   remlist = {}
   for msg in mbox:
     mid = messageID(msg)
+    # FIXME: if NEW spams came in since user read the page, they are released!
+    # This is because their mid is not in the list of checked mids.
+    # Need to save the full list of mids on the page.
     if mid == message_id or not message_id and FORM.getfirst(mid,'') == '':
       fpcmd = CONFIG['dspam']
       if fpcmd == 'SMTP':
@@ -339,6 +342,7 @@ def DeleteSpam(remlist=None):
     lock.commit()
   elif FORM.getfirst('notspam_all',"") != "":
     remlist = NotSpam(multi=True)
+  # remlist is dict of mids that were successfully released
   buff = lock.wlock()
   try:
     FILE = open(MAILBOX,'r')
@@ -352,20 +356,29 @@ def DeleteSpam(remlist=None):
     for msg in mbox:
       cnt += 1
       message_id = messageID(msg)
-      if remlist:
-	if message_id in remlist:
-          status = msg.getheader('X-Status','')
-          if not 'D' in status:
-            msg['X-Status'] = status + 'D'
-	else:
-	  msgcnt += 1
-        writeMsg(msg,buff)
-      elif FORM.getfirst(message_id,'') == '':
-	# Mark message saved in case user saves it
+      if FORM.getfirst(message_id,'') == '':
+	# Mark unchecked message saved in case user saves it
 	if cnt <= maxcnt:
 	  msg['X-Dspam-Status'] = 'Keep' 
-	writeMsg(msg,buff)
-	msgcnt += 1
+	checked = False
+      else:
+	# Mark checked message deleted so it doesn't show
+	if cnt <= maxcnt:
+	  del msg['X-Dspam-Status']
+	checked = True
+      if remlist:
+        # fully remove released messages
+	if message_id not in remlist:
+	  msgcnt += 1
+	  writeMsg(msg,buff)
+	continue
+      status = msg.getheader('X-Status','')
+      if not 'D' in status:
+	if not checked:
+	  msgcnt += 1
+	else:
+	  msg['X-Status'] = status + 'D'
+      writeMsg(msg,buff)
     FILE.close()
     lock.commit()
   except:
@@ -508,13 +521,14 @@ def ViewSpam():
     buff.write("""
 <TR>
  <TD BGCOLOR=#%(bgcolor)s><NOBR><FONT SIZE=-1>&nbsp;
-   <INPUT TYPE=CHECKBOX %(status)s NAME="%(Message-ID)s">&nbsp;</B></FONT>
+   <INPUT TYPE=CHECKBOX %(status)s NAME="%(Message-ID)s">&nbsp;</FONT>
+   <INPUT TYPE=HIDDEN VALUE="Y" NAME="ALL-%(Message-ID)s">
    &nbsp;&nbsp;</TD>
- <TD BGCOLOR=#%(bgcolor)s><NOBR><FONT SIZE=-1>&nbsp;%(start)s&nbsp;</B></FONT>
+ <TD BGCOLOR=#%(bgcolor)s><NOBR><FONT SIZE=-1>&nbsp;%(start)s&nbsp;</FONT>
    &nbsp;&nbsp;</TD>
- <TD BGCOLOR=#%(bgcolor)s><NOBR><FONT SIZE=-1>&nbsp;%(From)s&nbsp;</B></FONT>
+ <TD BGCOLOR=#%(bgcolor)s><NOBR><FONT SIZE=-1>&nbsp;%(From)s&nbsp;</FONT>
    &nbsp;&nbsp;</TD>
- <TD BGCOLOR=#%(bgcolor)s><NOBR><FONT SIZE=-1>&nbsp;<A HREF="%(ME)s?%(url)s">%(Subject)s</A>&nbsp;</B>
+ <TD BGCOLOR=#%(bgcolor)s><NOBR><FONT SIZE=-1>&nbsp;<A HREF="%(ME)s?%(url)s">%(Subject)s</A>&nbsp;
    </FONT>&nbsp;&nbsp;</TD>
 </TR>
 """ % heading)
