@@ -1,5 +1,6 @@
 #!/usr/bin/env python2.6
-# command line utility to add 
+# command line utility to add spams
+# Obsolete: dspam-3.10 has command line utilities
 
 import sys
 import mailbox
@@ -12,6 +13,7 @@ start_time = time.time()
 
 def usage():
   print >>sys.stderr, "Usage:	%s user filename [--addspam]" % sys.argv[0]
+  print >>sys.stderr, "NOTE: this is obsolete, you probably want dspam_train"
   sys.exit(2)
 
 def msgAsString(msg):

@@ -81,6 +81,7 @@ EOF
 cp -p dspamcgi.py $HTMLDIR/dspam
 chmod 0755 $HTMLDIR/dspam/dspamcgi.py $CGIDIR/pydspam.cgi
 cp -p template.html $HTMLDIR/dspam
+cp -p base.css $HTMLDIR/dspam
 cp -p Maxwells.gif $HTMLDIR/dspam/logo.gif
 
 # install python module
@@ -120,6 +121,7 @@ rm -rf $RPM_BUILD_ROOT
 %attr(0755,dspam,dspam)%{htmldir}/dspam/dspamcgi.py
 %config %{htmldir}/dspam/template.html
 %config %{htmldir}/dspam/logo.gif
+%config %{htmldir}/dspam/base.css
 %{cgibin}/pydspam.cgi
 #/usr/lib/%{__python}/site-packages/Dspam.pyo
 #%{htmldir}/dspam/dspamcgi.pyc
@@ -139,6 +141,10 @@ if [ $1 -eq 0 ] ; then
 fi
 
 %changelog
+* Fri Sep 18 2015 Stuart Gathman <stuart@bmsi.com> 1.3.2-1
+- Flag spams deleted from quarantine without discarding
+- Detect messages added to quarantine after it was displayed
+
 * Sun May 17 2015 Stuart Gathman <stuart@bmsi.com> 1.3.1-1
 - Compute driver directory from --libdir CONFIGURE_ARG
 - Add CONFIGURE_ARGS and PKGLIBDIR
