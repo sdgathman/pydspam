@@ -265,7 +265,8 @@ def NotSpam(multi=False):
     # FIXME: if NEW spams came in since user read the page, they are released!
     # This is because their mid is not in the list of checked mids.
     # Need to save the full list of mids on the page.
-    if mid == message_id or not message_id and FORM.getfirst(mid,'') == '':
+    unchecked = FORM.getfirst(mid,'') == '' and FORM.getfirst('ALL-'+mid) == 'Y'
+    if mid == message_id or not message_id and unchecked:
       fpcmd = CONFIG['dspam']
       if fpcmd == 'SMTP':
 	domain = CONFIG['domain']
@@ -356,7 +357,8 @@ def DeleteSpam(remlist=None):
     for msg in mbox:
       cnt += 1
       message_id = messageID(msg)
-      if FORM.getfirst(message_id,'') == '':
+      if FORM.getfirst(message_id,'') == '' \
+      	and FORM.getfirst('ALL-'+message_id) == 'Y':
 	# Mark unchecked message saved in case user saves it
 	if cnt <= maxcnt:
 	  msg['X-Dspam-Status'] = 'Keep' 
