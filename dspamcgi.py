@@ -250,6 +250,16 @@ def messageID(msg):
     m.update(h)
   return m.hexdigest()
 
+def getChecked(mid):
+  "Return -1 unchecked, 1 checked, 0 not present"
+  # Can't rely on returning '', so need second copy of every mid :-(
+  a = FORM.getfirst('ALL-'+mid,'')
+  if a != 'Y': return 0
+  v = FORM.getfirst(mid,'')
+  #print >>open('/tmp/pds','a'),mid,v,a
+  if v == '': return -1
+  return 1
+
 def NotSpam(multi=False):
   if multi:
     message_id = None
@@ -262,11 +272,7 @@ def NotSpam(multi=False):
   remlist = {}
   for msg in mbox:
     mid = messageID(msg)
-    # FIXME: if NEW spams came in since user read the page, they are released!
-    # This is because their mid is not in the list of checked mids.
-    # Need to save the full list of mids on the page.
-    unchecked = FORM.getfirst(mid,'') == '' and FORM.getfirst('ALL-'+mid) == 'Y'
-    if mid == message_id or not message_id and unchecked:
+    if mid == message_id or not message_id and getChecked(mid) < 0:
       fpcmd = CONFIG['dspam']
       if fpcmd == 'SMTP':
 	domain = CONFIG['domain']
@@ -292,7 +298,10 @@ def NotSpam(multi=False):
       if not multi: break
   FILE.close()
   if multi: return remlist
-  DeleteSpam(remlist)
+  if remlist:
+    DeleteSpam(remlist)
+  else:
+    error("No message to delete")
 
 def ViewOneSpam():
   message_id = FORM.getfirst('MESSAGE_ID',"")
@@ -357,18 +366,16 @@ def DeleteSpam(remlist=None):
     for msg in mbox:
       cnt += 1
       message_id = messageID(msg)
-      if FORM.getfirst(message_id,'') == '' \
-      	and FORM.getfirst('ALL-'+message_id) == 'Y':
+      checked = getChecked(message_id)
+      if checked < 0:
 	# Mark unchecked message saved in case user saves it
 	if cnt <= maxcnt:
 	  msg['X-Dspam-Status'] = 'Keep' 
-	checked = False
-      else:
+      elif checked > 0:
 	# Mark checked message deleted so it doesn't show
 	if cnt <= maxcnt:
 	  del msg['X-Dspam-Status']
-	checked = True
-      if remlist:
+      if remlist is not None:
         # fully remove released messages
 	if message_id not in remlist:
 	  msgcnt += 1
@@ -376,9 +383,9 @@ def DeleteSpam(remlist=None):
 	continue
       status = msg.getheader('X-Status','')
       if not 'D' in status:
-	if not checked:
+	if checked < 0:
 	  msgcnt += 1
-	else:
+	elif checked > 0:
 	  msg['X-Status'] = status + 'D'
       writeMsg(msg,buff)
     FILE.close()
