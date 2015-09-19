@@ -281,6 +281,7 @@ def NotSpam(multi=False):
 	server = smtplib.SMTP('localhost')
 	#server.set_debuglevel(1)
 	buff = StringIO.StringIO()
+	del msg['X-Dspam-Status']
 	writeMsg(msg,buff)
 	try:
 	  server.sendmail(fromaddr, toaddrs, buff.getvalue())
