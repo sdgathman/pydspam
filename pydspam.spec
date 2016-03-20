@@ -5,7 +5,7 @@
 
 Summary: A Python wrapper for Dspam Bayesian spam filtering
 Name: %{pythonbase}-pydspam
-Version: 1.3.1
+Version: 1.3.2
 Release: 1%{dist}
 License: GPL
 URL: http://www.bmsi.com/python/dspam.html
@@ -123,9 +123,9 @@ rm -rf $RPM_BUILD_ROOT
 %config %{htmldir}/dspam/logo.gif
 %config %{htmldir}/dspam/base.css
 %{cgibin}/pydspam.cgi
-#/usr/lib/%{__python}/site-packages/Dspam.pyo
-#%{htmldir}/dspam/dspamcgi.pyc
-#%{htmldir}/dspam/dspamcgi.pyo
+/usr/lib64/%{__python}/site-packages/Dspam.pyo
+%{htmldir}/dspam/dspamcgi.pyc
+%{htmldir}/dspam/dspamcgi.pyo
 
 %files selinux
 %doc pydspam.te

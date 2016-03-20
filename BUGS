@@ -1,3 +1,11 @@
+Log errors, except 'already exists', when creating lock file in dspamcgi.py
+
+Call Milter.utils.parse_header instead of email.Header.decode_header, which
+does not handle missing padding.  Maybe use local patch to avoid depending
+on pymilter for cgi.
+
+Option to view "deleted" spam.
+
 groups broken for 1.3:
   updates user dict using user lock, but writes stats for group
 
