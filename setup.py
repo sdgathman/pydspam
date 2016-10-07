@@ -9,14 +9,13 @@ use libdspam functionality.  A higher level wrapper handles a
 signature database and quarantine mbox in a user directory.
 
 This release updates pydspam for dspam-3.10.2. Because the libdspam API changed
-drastically since dspam-2.6, this is considered an Alpha release. I do have it
-running on a small (one user) production system that volunteered to be a guinea
-pig.
+drastically since dspam-2.6, this is considered a Beta release. I do have it
+running on several production systems with no problems.
 """,
 	author="Stuart D. Gathman",
-	author_email="stuart@bmsi.com",
+	author_email="stuart@gathman.org",
 	maintainer="Stuart D. Gathman",
-	maintainer_email="stuart@bmsi.com",
+	maintainer_email="stuart@gathman.org",
 	license="GPL",
 	url="http://www.bmsi.com/python/dspam.html",
 	py_modules=["Dspam"],
@@ -26,7 +25,7 @@ pig.
 	  )
 	],
 	classifiers = [
-	  'Development Status :: 3 - Alpha',
+	  'Development Status :: 4 - Beta',
 	  'Environment :: No Input/Output (Daemon)',
 	  'Intended Audience :: System Administrators',
 	  'License :: OSI Approved :: GNU General Public License (GPL)',
