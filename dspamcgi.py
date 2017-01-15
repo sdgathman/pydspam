@@ -457,7 +457,7 @@ def ViewSpam():
       subj = "<None Specified>"
     else:
       h = decode_header(subj)
-      if len(h) == 1 and h[0][1]:
+      if len(h) == 1 and len(h[0]) > 1 and h[0][1]:
 	p = h[0]
 	try:
 	  u = unicode(p[0],p[1])
