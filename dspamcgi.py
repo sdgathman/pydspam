@@ -1,4 +1,4 @@
-#!/usr/bin/python2.6
+#!/usr/bin/python2
 
 # DSPAM
 # COPYRIGHT (C) 2003 NETWORK DWEEBS CORPORATION

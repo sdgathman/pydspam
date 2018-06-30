@@ -13,7 +13,7 @@ Group: Development/Libraries
 Source: http://bmsi.com/python/pydspam-%{version}.tar.gz
 #Patch: pydspam.patch
 Buildroot: /var/tmp/pydspam-root
-Requires: dspam >= 3.10 %{pythonbase}
+Requires: dspam >= 3.10 %{__python}
 BuildRequires: %{pythonbase}-devel dspam-devel
 BuildRequires: policycoreutils policycoreutils-python
 Obsoletes: dspam-python
@@ -58,7 +58,7 @@ cat >$ETCDIR/cron.hourly/dspam <<'EOF'
 #!/bin/sh
 cd /var/lib/dspam
 exec >>reprocess.log 2>&1
-/usr/local/sbin/pydspam_process.py *.spam *.fp
+%{_libexecdir}/pydspam/pydspam_process.py *.spam *.fp
 EOF
 chmod a+x $ETCDIR/cron.hourly/dspam
 
@@ -112,14 +112,13 @@ cp -p pydspam.pp %{buildroot}%{_datadir}/selinux/targeted
 /etc/cron.hourly/dspam
 %config(noreplace) /etc/mail/dspam/dspam.cfg
 %config /etc/logrotate.d/pydspam
-%attr(0775,root,root)/usr/local/bin/*
-%attr(0775,root,root)/usr/local/sbin/*
+%attr(0775,root,root)%{_libexecdir}
 %attr(0755,dspam,dspam)%{htmldir}/dspam/dspamcgi.py
 %config %{htmldir}/dspam/template.html
 %config %{htmldir}/dspam/logo.gif
 %config %{htmldir}/dspam/base.css
 %{cgibin}/pydspam.cgi
-/usr/lib64/%{__python}/site-packages/Dspam.pyo
+%{python_sitearch}/Dspam.pyo
 %{htmldir}/dspam/dspamcgi.pyc
 %{htmldir}/dspam/dspamcgi.pyo
 
@@ -137,6 +136,9 @@ if [ $1 -eq 0 ] ; then
 fi
 
 %changelog
+* Sat Jun 30 2018 Stuart Gathman <stuart@gathman.org> 1.3.3-1
+- Align more with Fedora packaging standards
+
 * Fri Sep 18 2015 Stuart Gathman <stuart@bmsi.com> 1.3.2-1
 - Flag spams deleted from quarantine without discarding
 - Detect messages added to quarantine after it was displayed

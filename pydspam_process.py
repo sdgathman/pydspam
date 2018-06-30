@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.6
+#!/usr/bin/python2
 # $Log$
 # Revision 2.1  2015/02/11 22:06:04  customdesigned
 # Merge pydspam-3-branch to trunk

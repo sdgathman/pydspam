@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.6
+#!/usr/bin/python2
 # command line utility to add spams
 # Obsolete: dspam-3.10 has command line utilities
 
