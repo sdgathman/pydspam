@@ -6,7 +6,7 @@
 Summary: A Python wrapper for Dspam Bayesian spam filtering
 Name: %{pythonbase}-pydspam
 Version: 1.3.3
-Release: 1%{dist}
+Release: 2%{dist}
 License: GPL
 URL: http://www.bmsi.com/python/dspam.html
 Group: Development/Libraries
@@ -14,6 +14,8 @@ Source: http://bmsi.com/python/pydspam-%{version}.tar.gz
 #Patch: pydspam.patch
 Buildroot: /var/tmp/pydspam-root
 Requires: dspam >= 3.10 %{__python}
+# Dspam.py currently hardwires this driver
+Requires: dspam-hash
 BuildRequires: %{pythonbase}-devel dspam-devel
 BuildRequires: policycoreutils policycoreutils-python
 Obsoletes: dspam-python
@@ -92,10 +94,10 @@ while read file; do
 done <INSTALLED_FILES
 
 # install python utilities
-mkdir -p $RPM_BUILD_ROOT%{_libexecdir}
-cp -p dspam_anal.py $RPM_BUILD_ROOT%{_libexecdir}/pydspam_anal
-cp -p dspam_corpus.py $RPM_BUILD_ROOT%{_libexecdir}/pydspam_corpus
-cp -p pydspam_process.py $RPM_BUILD_ROOT%{_libexecdir}
+mkdir -p $RPM_BUILD_ROOT%{_libexecdir}/pydspam
+cp -p dspam_anal.py $RPM_BUILD_ROOT%{_libexecdir}/pydspam/pydspam_anal
+cp -p dspam_corpus.py $RPM_BUILD_ROOT%{_libexecdir}/pydspam/pydspam_corpus
+cp -p pydspam_process.py $RPM_BUILD_ROOT%{_libexecdir}/pydspam
 
 # install logrotate entry
 mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/logrotate.d
@@ -112,7 +114,7 @@ cp -p pydspam.pp %{buildroot}%{_datadir}/selinux/targeted
 /etc/cron.hourly/dspam
 %config(noreplace) /etc/mail/dspam/dspam.cfg
 %config /etc/logrotate.d/pydspam
-%attr(0775,root,root)%{_libexecdir}
+%attr(0775,root,root)%{_libexecdir}/pydspam
 %attr(0755,dspam,dspam)%{htmldir}/dspam/dspamcgi.py
 %config %{htmldir}/dspam/template.html
 %config %{htmldir}/dspam/logo.gif
@@ -136,6 +138,9 @@ if [ $1 -eq 0 ] ; then
 fi
 
 %changelog
+* Sat Jun 30 2018 Stuart Gathman <stuart@gathman.org> 1.3.3-2
+- Require dspam-hash storage driver hardwired by Dspam.py
+
 * Sat Jun 30 2018 Stuart Gathman <stuart@gathman.org> 1.3.3-1
 - Align more with Fedora packaging standards
 

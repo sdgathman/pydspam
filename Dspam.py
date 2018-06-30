@@ -64,6 +64,7 @@ CONFIGURE_ARGS = _configure_dict()
 # @since 1.3.1
 PKGLIBDIR = os.path.join(CONFIGURE_ARGS['--libdir'],'dspam')
 
+# FIXME: parse /etc/dspam.conf
 dspam.libdspam_init(os.path.join(PKGLIBDIR,'libhash_drv.so'))
 
 VERSION = "1.3.1" # abi compatibility, not package version
