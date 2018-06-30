@@ -1,11 +1,11 @@
-%define __python python2.6
+%define __python %{__python2}
 %define pythonbase python
-%define cgibin /var/www/cgi-bin
-%define htmldir /var/www/html
+%define cgibin %{_localstatedir}/www/cgi-bin
+%define htmldir %{_localstatedir}/www/html
 
 Summary: A Python wrapper for Dspam Bayesian spam filtering
 Name: %{pythonbase}-pydspam
-Version: 1.3.2
+Version: 1.3.3
 Release: 1%{dist}
 License: GPL
 URL: http://www.bmsi.com/python/dspam.html
@@ -15,6 +15,7 @@ Source: http://bmsi.com/python/pydspam-%{version}.tar.gz
 Buildroot: /var/tmp/pydspam-root
 Requires: dspam >= 3.10 %{pythonbase}
 BuildRequires: %{pythonbase}-devel dspam-devel
+BuildRequires: policycoreutils policycoreutils-python
 Obsoletes: dspam-python
 
 %description
@@ -50,10 +51,8 @@ checkmodule -m -M -o pydspam.mod pydspam.te
 semodule_package -o pydspam.pp -m pydspam.mod
 
 %install
-rm -rf $RPM_BUILD_ROOT
-
 # provide maintenance scripts
-ETCDIR="$RPM_BUILD_ROOT/etc"
+ETCDIR="$RPM_BUILD_ROOT%{_sysconfdir}"
 mkdir -p $ETCDIR/cron.hourly
 cat >$ETCDIR/cron.hourly/dspam <<'EOF'
 #!/bin/sh
@@ -93,25 +92,22 @@ while read file; do
 done <INSTALLED_FILES
 
 # install python utilities
-mkdir -p $RPM_BUILD_ROOT/usr/local/bin
-mkdir -p $RPM_BUILD_ROOT/usr/local/sbin
-cp -p dspam_anal.py $RPM_BUILD_ROOT/usr/local/bin/pydspam_anal
-cp -p dspam_corpus.py $RPM_BUILD_ROOT/usr/local/bin/pydspam_corpus
-cp -p pydspam_process.py $RPM_BUILD_ROOT/usr/local/sbin
+mkdir -p $RPM_BUILD_ROOT%{_libexecdir}
+cp -p dspam_anal.py $RPM_BUILD_ROOT%{_libexecdir}/pydspam_anal
+cp -p dspam_corpus.py $RPM_BUILD_ROOT%{_libexecdir}/pydspam_corpus
+cp -p pydspam_process.py $RPM_BUILD_ROOT%{_libexecdir}
 
 # install logrotate entry
-mkdir -p $RPM_BUILD_ROOT/etc/logrotate.d
-cp -p pydspam.logrotate $RPM_BUILD_ROOT/etc/logrotate.d/pydspam
+mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/logrotate.d
+cp -p pydspam.logrotate $RPM_BUILD_ROOT%{_sysconfdir}/logrotate.d/pydspam
 
 # install selinux modules
 mkdir -p %{buildroot}%{_datadir}/selinux/targeted
 cp -p pydspam.pp %{buildroot}%{_datadir}/selinux/targeted
 
-%clean
-rm -rf $RPM_BUILD_ROOT
-
 %files -f INSTALLED_FILES
 %defattr(-,root,root)
+%license LICENSE
 %doc NEWS dspam.html dspam_dump.py Notes*
 /etc/cron.hourly/dspam
 %config(noreplace) /etc/mail/dspam/dspam.cfg
@@ -149,10 +145,10 @@ fi
 - Compute driver directory from --libdir CONFIGURE_ARG
 - Add CONFIGURE_ARGS and PKGLIBDIR
 
-* Thu Feb 15 2015 Stuart Gathman <stuart@bmsi.com> 1.3-3
+* Sun Feb 15 2015 Stuart Gathman <stuart@bmsi.com> 1.3-3
 - Fix selinux policy for alerts file for webui, add selinux subpackage.
 
-* Thu Feb 15 2015 Stuart Gathman <stuart@bmsi.com> 1.3-2
+* Sun Feb 15 2015 Stuart Gathman <stuart@bmsi.com> 1.3-2
 - Clean up various typos and packaging problems.
 
 * Thu Feb 05 2015 Stuart Gathman <stuart@bmsi.com> 1.3-1
