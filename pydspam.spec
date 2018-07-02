@@ -5,8 +5,8 @@
 
 Summary: A Python wrapper for Dspam Bayesian spam filtering
 Name: %{pythonbase}-pydspam
-Version: 1.3.3
-Release: 2%{dist}
+Version: 1.3.4
+Release: 1%{dist}
 License: GPL
 URL: http://www.bmsi.com/python/dspam.html
 Group: Development/Libraries
@@ -138,6 +138,9 @@ if [ $1 -eq 0 ] ; then
 fi
 
 %changelog
+* Mon Jul  2 2018 Stuart Gathman <stuart@gathman.org> 1.3.4-1
+- Update selinux tag on /var/lib/dspam to match new dspsam package
+
 * Sat Jun 30 2018 Stuart Gathman <stuart@gathman.org> 1.3.3-2
 - Require dspam-hash storage driver hardwired by Dspam.py
 
