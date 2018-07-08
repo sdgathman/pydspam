@@ -30,8 +30,7 @@ allow httpd_sys_script_t dspam_var_lib_t:file { read open getattr };
 allow httpd_sys_script_t dspam_rw_content_t:file { read open getattr write rename create unlink setattr append };
 allow httpd_sys_script_t httpd_log_t:dir { write add_name };
 allow httpd_sys_script_t httpd_log_t:file create;
-allow httpd_sys_script_t self:capability setuid;
-allow httpd_sys_script_t self:capability { setgid dac_override };
+allow httpd_sys_script_t self:capability { setuid setgid dac_override };
 
 #============= logrotate_t ==============
 #
