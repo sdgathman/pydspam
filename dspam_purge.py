@@ -1,5 +1,6 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
+from __future__ import print_function
 import sys
 import bsddb
 import dspam
@@ -21,7 +22,7 @@ def rename(src,dst):
 userdir = '/var/lib/dspam'
 
 if len(sys.argv) < 2:
-  print >>sys.stderr,'syntax: dspam_dump [user] ...'
+  print('syntax: dspam_dump [user] ...',file=sys.stderr)
   sys.exit(2)
 
 for user in sys.argv[1:]:
@@ -47,7 +48,7 @@ for user in sys.argv[1:]:
 	  # If we've already seen totals, then db is looped
 	  if totalrec: break	
 	  totalrec = struct.unpack('llll',data)
-	  print 'TOTALS: TS: %d TI: %d TM: %d FP: %d' % totalrec
+	  print('TOTALS: TS: %d TI: %d TM: %d FP: %d' % totalrec)
 	  newdict[key] = data
 	else:
 	  spam_hits,innocent_hits,last_hit = struct.unpack('lll',data)
@@ -60,7 +61,7 @@ for user in sys.argv[1:]:
 	      ++deleted
 	      if DEBUG:
 		crc = struct.unpack('Q',key)[0]
-		print 'DELETING: %16x: %d %d' % (crc,spam_hits,innocent_hits)
+		print('DELETING: %16x: %d %d' % (crc,spam_hits,innocent_hits))
 	    else:
 	      newdict[key] = data
 	  else:

@@ -1,7 +1,7 @@
 import os
 from distutils.core import setup, Extension
 
-setup(name = "pydspam", version = "1.3.3",
+setup(name = "pydspam", version = "1.3.4",
 	description="Python interface to libdspam",
 	long_description="""\
 This is a python extension module to enable python scripts to
@@ -21,7 +21,11 @@ running on several production systems with no problems.
 	py_modules=["Dspam"],
 	ext_modules=[
 	  Extension("dspam", ["dspam.c"],
-	    libraries=["dspam"]
+	    libraries=["dspam"],
+	    define_macros = [ ('LOGDIR',"/var/log/dspam"),
+                              ('CONFIG_DEFAULT',"/etc/dspam.conf") ],
+            # save lots of debugging time testing rfc2553 compliance
+            extra_compile_args = [ "-Werror=implicit-function-declaration" ]
 	  )
 	],
 	classifiers = [

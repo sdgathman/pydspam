@@ -1,4 +1,5 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
+from __future__ import print_function
 import sys
 import bsddb
 import dspam
@@ -74,14 +75,14 @@ def analyzeMessage(ds,fp,headeronly=0,maxstat=15):
   totprob = ds.probability
   bay_top = 0.0 # AB
   bay_bot = 0.0 # (1-A)(1-B)
-  print "TS: %d TI: %d TM: %d FP: %d" % totals
-  print "DSPAM spam probability = %f" % totprob
+  print("TS: %d TI: %d TM: %d FP: %d" % totals)
+  print("DSPAM spam probability = %f" % totprob)
   tok = dspam.tokenize(hdr,body)
   sig = struct.unpack('Q'*(len(sig)/8),sig)
   db = bsddb.btopen(dict,'r')
   try:
-    print "%8s %8s %8s %4s %s" % (
-      "spamhits","innocent","prob","freq","token")
+    print("%8s %8s %8s %4s %s" % (
+      "spamhits","innocent","prob","freq","token"))
     for crc in sig:
       prob,spam_hits,innocent_hits = load_stat(db,crc,totals)
       try: token,freq = tok[crc]
@@ -93,19 +94,20 @@ def analyzeMessage(ds,fp,headeronly=0,maxstat=15):
 	else: bay_top *= prob
 	if bay_bot == 0.0: bay_bot = 1-prob
 	else: bay_bot *= (1-prob)
-        print "%8d %8d %8f %4d %8f %s" % (
-	  spam_hits,innocent_hits,prob,freq,bay_top / (bay_bot + bay_top),token)
+        print("%8d %8d %8f %4d %8f %s" % (
+	  spam_hits,innocent_hits,prob,freq,
+          bay_top / (bay_bot + bay_top),token))
       else:
-        print "%8d %8d %8f %4d %s" % (
-	  spam_hits,innocent_hits,prob,freq,token)
+        print("%8d %8d %8f %4d %s" % (
+	  spam_hits,innocent_hits,prob,freq,token))
 
     probability = bay_top / (bay_top + bay_bot);
-    print "Calculated probability = %f" % probability
+    print("Calculated probability = %f" % probability)
   finally:
     db.close()
 
 if len(sys.argv) < 2:
-  print >>sys.stderr,'syntax: dspam_anal user|dict [-h] [message ...]'
+  print('syntax: dspam_anal user|dict [-h] [message ...]',file=sys.stderr)
   sys.exit(2)
 
 user = sys.argv[1]

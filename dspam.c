@@ -11,9 +11,9 @@
  * GNU General Public License for more details.
  * 
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
- *
+ * along with this program; if not, write to the
+ * Free Software Foundation, Inc.
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /* This module interfaces Python to the dspam library.  Dspam can be
@@ -62,7 +62,7 @@
 //#include <pthread.h>
 #include <Python.h>
 #include <structmember.h>
-/* #define DEBUG 2		/* if libdspam compiled with --enable-debug */
+//#define DEBUG 2		// if libdspam compiled with --enable-debug 
 #include <dspam/auto-config.h>
 #include <dspam/util.h>
 #include <dspam/libdspam.h>
@@ -74,7 +74,11 @@ int verified_user = 1;
 
 static PyObject *DspamError;
 
-staticforward PyTypeObject dspam_Type;
+#if PY_MAJOR_VERSION >= 3
+	static PyTypeObject dspam_Type;
+#else
+	staticforward PyTypeObject dspam_Type;
+#endif
 
 typedef struct {
   PyObject_HEAD
@@ -90,8 +94,7 @@ _dspam_dealloc(PyObject *s) {
   if (ctx)
     dspam_destroy(ctx);
   Py_XDECREF(self->sig);
-  //PyObject_DEL(s);
-  self->ob_type->tp_free((PyObject*)self);
+  PyObject_DEL(self);
 }
 
 static PyObject *
@@ -189,9 +192,15 @@ _dspam_process(PyObject *dspamobj, PyObject *args, PyObject *kwds) {
     if (buf == 0) len = 0;
     if (!self->sig || PySequence_Size(self->sig) != len) {
       Py_XDECREF(self->sig);
+#if PY_MAJOR_VERSION >= 3
+      self->sig = PyByteArray_FromStringAndSize(buf,len);
+      free(buf);
+      buf = 0; len = 0;
+#else
       self->sig = PyBuffer_New(len);
+#endif
     }
-    if (self->sig) {
+    if (self->sig && buf) {
       void *data;
       Py_ssize_t dlen;
       if (!PyObject_AsWriteBuffer(self->sig,&data,&dlen))
@@ -446,6 +455,10 @@ _dspam_get_signature(PyObject *dspamctx, PyObject *args) {
     PyErr_SetString(DspamError, "Failed to retreive signature");
     return NULL;
   }
+#if PY_MAJOR_VERSION >= 3
+  o = PyByteArray_FromStringAndSize(sig.data,sig.length);
+  if (!o) return NULL;
+#else
   o = PyBuffer_New(sig.length);
   if (!o) return NULL;
   if (sig.length > 0) {
@@ -457,6 +470,7 @@ _dspam_get_signature(PyObject *dspamctx, PyObject *args) {
     }
     memcpy(data,sig.data,dlen);
   }
+#endif
   return o;
 }
 
@@ -543,13 +557,21 @@ _generic_setint(void *obj, PyObject *value, const char *name, int offset) {
     PyErr_SetString(PyExc_TypeError, buf);
     return -1;
   }
+#if PY_MAJOR_VERSION >= 3
+  if (! PyLong_Check(value)) {
+#else
   if (! PyInt_Check(value)) {
+#endif
     sprintf(buf,"%s must be an int",name);
     PyErr_SetString(PyExc_TypeError, buf);
     return -1;
   }
 
-  val = (int)PyInt_AsLong(value);
+#if PY_MAJOR_VERSION >= 3
+  val = PyLong_AS_LONG(value);
+#else
+  val = PyInt_AS_LONG(value);
+#endif
   if (PyErr_Occurred())
     return -1;
   else {
@@ -694,7 +716,7 @@ static PyMethodDef dspamctx_methods[] = {
 };
 
 static PyMemberDef dspamctx_members[] = {
-  { "signature",T_OBJECT,offsetof(dspam_Object,sig),RO,
+  { "signature",T_OBJECT,offsetof(dspam_Object,sig),READONLY,
     "Statistical Signature of message" },
   {0},
 };
@@ -848,9 +870,14 @@ static PyMethodDef _dspam_methods[] = {
 };
 
 static PyTypeObject dspam_Type = {
+#if PY_MAJOR_VERSION >= 3
+  PyVarObject_HEAD_INIT(&PyType_Type,0)
+  "dspam.ctx",
+#else
   PyObject_HEAD_INIT(&PyType_Type)
   0,
   "dspam.ctx",
+#endif
   sizeof(dspam_Object),
   	0,					/* itemsize */
         (destructor)_dspam_dealloc,            /* tp_dealloc */
@@ -887,13 +914,36 @@ static PyTypeObject dspam_Type = {
 	(initproc)_dspam_init,                  /* tp_init */
  	PyType_GenericAlloc,                    /* tp_alloc */
 	_dspam_new,                             /* tp_new */
- 	_PyObject_Del,                 		/* tp_free */
+ 	PyObject_Free,                 		/* tp_free */
 };
 
 static char _dspam_documentation[] =
 "This module wraps the libdspam library API for the DSPAM Bayesian\n\
 anti-spam package.\n";
 
+#if PY_MAJOR_VERSION >= 3
+
+static struct PyModuleDef moduledef = {
+    PyModuleDef_HEAD_INIT,
+    "dspam",           /* m_name */
+    _dspam_documentation,/* m_doc */
+    -1,                  /* m_size */
+    _dspam_methods,      /* m_methods */
+    NULL,                /* m_reload */
+    NULL,                /* m_traverse */
+    NULL,                /* m_clear */
+    NULL,                /* m_free */
+};
+
+PyMODINIT_FUNC PyInit_dspam(void) {
+    PyObject *m, *d;
+ 
+   if (PyType_Ready(&dspam_Type) < 0)
+          return NULL;
+
+   m = PyModule_Create(&moduledef);
+   if (m == NULL) return NULL;
+#else
 void
 initdspam(void) {
    PyObject *m, *d;
@@ -901,18 +951,19 @@ initdspam(void) {
    if (PyType_Ready(&dspam_Type) < 0) return;
    m = Py_InitModule4("dspam", _dspam_methods, _dspam_documentation,
 		      (PyObject*)NULL, PYTHON_API_VERSION);
-   if (m == 0) return;
+   if (m == NULL) return;
+#endif
    d = PyModule_GetDict(m);
    if (PyDict_SetItemString(d,"LIBDSPAM_VERSION", Py_BuildValue("iii",
    	LIBDSPAM_VERSION_MAJOR,
    	LIBDSPAM_VERSION_MINOR,
-   	LIBDSPAM_VERSION_PATCH))) return;
+   	LIBDSPAM_VERSION_PATCH))) goto initerror;
    DspamError = PyErr_NewException("dspam.error", PyExc_EnvironmentError, NULL);
-   if (!DspamError) return;
-   if (PyDict_SetItemString(d,"error", DspamError)) return;
+   if (!DspamError) goto initerror;
+   if (PyDict_SetItemString(d,"error", DspamError)) goto initerror;
    Py_INCREF(&dspam_Type);
-   if (PyDict_SetItemString(d,"dspam", (PyObject *)&dspam_Type)) return;
-   if (PyDict_SetItemString(d,"ctx", (PyObject *)&dspam_Type)) return;
+   if (PyDict_SetItemString(d,"dspam", (PyObject *)&dspam_Type)) goto initerror;
+   if (PyDict_SetItemString(d,"ctx", (PyObject *)&dspam_Type)) goto initerror;
    PyModule_AddStringMacro(m,CONFIGURE_ARGS);
 
 #define CONST(n) PyModule_AddIntConstant(m,#n, n)
@@ -958,5 +1009,11 @@ initdspam(void) {
    CONST(DSA_NAIVE);	/* Naive Bayesian */
 #ifdef DSR_ISWHITELISTED
    CONST(DSR_ISWHITELISTED);
+#endif
+ initerror:
+#if PY_MAJOR_VERSION >= 3
+   return m;
+#else
+   return;
 #endif
 }

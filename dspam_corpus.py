@@ -1,7 +1,7 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # command line utility to add spams
 # Obsolete: dspam-3.10 has command line utilities
-
+from __future__ import print_function
 import sys
 import mailbox
 import time
@@ -12,8 +12,8 @@ from dspam import *
 start_time = time.time()
 
 def usage():
-  print >>sys.stderr, "Usage:	%s user filename [--addspam]" % sys.argv[0]
-  print >>sys.stderr, "NOTE: this is obsolete, you probably want dspam_train"
+  print("Usage:	%s user filename [--addspam]" % sys.argv[0],file=sys.stderr)
+  print("NOTE: this is obsolete, you probably want dspam_train",file=sys.stderr)
   sys.exit(2)
 
 def msgAsString(msg):
@@ -64,10 +64,10 @@ file_lock(dict)
 db = bsddb.btopen(dict,'c')
 try:
   for msg in iter(mbox.next,None):
-    print msg.unixfrom.strip()
+    print(msg.unixfrom.strip())
     data = msgAsString(msg)
     totals = addCorpus(db,data,mode)
 finally:
   db.close()
   file_unlock(dict)
-print "TS=%d TI=%d TM=%d FP=%d" % totals
+print("TS=%d TI=%d TM=%d FP=%d" % totals)

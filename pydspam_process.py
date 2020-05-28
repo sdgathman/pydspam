@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # $Log$
 # Revision 2.1  2015/02/11 22:06:04  customdesigned
 # Merge pydspam-3-branch to trunk
@@ -25,6 +25,7 @@
 # Revision 2.4  2003/10/22 02:03:17  stuart
 # Add From header for reprocessing failures
 #
+from __future__ import print_function
 import mailbox
 import sys
 import os
@@ -34,9 +35,7 @@ import time
 import Dspam
 
 def log(*msg):
-  print time.strftime('%Y%b%d %H:%M:%S'),
-  for i in msg: print i,
-  print
+  print(time.strftime('%Y%b%d %H:%M:%S'),*msg)
 
 def process_queue(fname):
   if not os.path.isfile(fname): return False
@@ -74,7 +73,7 @@ def process_queue(fname):
     os.unlink(lockname)
     return False
   except OSError:
-    print 'Busy, try later'
+    print('Busy, try later')
     return True
 
 for fname in sys.argv[1:]:

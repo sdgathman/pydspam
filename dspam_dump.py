@@ -1,5 +1,5 @@
-#!/usr/bin/env python2
-
+#!/usr/bin/env python3
+from __future__ import print_function
 import bsddb
 import dspam
 import struct
@@ -18,13 +18,13 @@ def dump_dict(dict):
       while 1:
 	if key == '_TOTALS':
 	  rec = struct.unpack('llll',data)
-	  print 'TOTALS: TS: %d TI: %d TM: %d FP: %d' % rec
+	  print('TOTALS: TS: %d TI: %d TM: %d FP: %d' % rec)
 	else:
 	  rec = struct.unpack('lll',data)
 	  crc = struct.unpack('Q',key)[0]
-	  print '%16x S: %8d I: %8d LH: %s' % (
+	  print('%16x S: %8d I: %8d LH: %s' % (
 	    crc,rec[0],rec[1],time.ctime(rec[2])
-	  )
+	  ))
 	key,data = db.next()
     except KeyError: pass
     db.close()
@@ -35,7 +35,7 @@ userdir = '/var/lib/dspam'
 if __name__ == "__main__":
   import sys
   if len(sys.argv) < 2:
-    print >>sys.stderr,'syntax: dspam_dump [user|dict] ...'
+    print('syntax: dspam_dump [user|dict] ...',file=sys.stderr)
     sys.exit(2)
 
   for user in sys.argv[1:]:

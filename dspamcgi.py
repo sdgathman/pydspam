@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 # DSPAM
 # COPYRIGHT (C) 2003 NETWORK DWEEBS CORPORATION
@@ -15,8 +15,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+from __future__ import print_function
 from time import ctime,sleep,strptime,strftime,localtime
 import sys
 import StringIO
@@ -210,9 +210,8 @@ def AddAlert():
   alert = FORM.getfirst('ALERT',"")
   if alert == "":
     error("No Alert Specified")
-  FILE = open(USER+".alerts",'a')
-  print >>FILE,alert
-  FILE.close()
+  with open(USER+".alerts",'a') as fp:
+    print(alert,file=fp)
   Welcome()
 
 def DeleteAlert():
@@ -256,7 +255,7 @@ def getChecked(mid):
   a = FORM.getfirst('ALL-'+mid,'')
   if a != 'Y': return 0
   v = FORM.getfirst(mid,'')
-  #print >>open('/tmp/pds','a'),mid,v,a
+  #with open('/tmp/pds','a') as fp: print(mid,v,a,file=fp)
   if v == '': return -1
   return 1
 
@@ -394,8 +393,8 @@ def DeleteSpam(remlist=None):
   except:
     lock.unlock()
     raise
-  print "Location: %s?COMMAND=VIEW_SPAM&MBOX_IDX=%d&last_count=%d\n"%(
-	CONFIG['me'],CONFIG['mbox_idx'],msgcnt)
+  print("Location: %s?COMMAND=VIEW_SPAM&MBOX_IDX=%d&last_count=%d\n"%(
+	CONFIG['me'],CONFIG['mbox_idx'],msgcnt))
 
 def trimString(s,maxlen):
   if len(s) <= maxlen:
@@ -421,7 +420,7 @@ def SortSpam():
   config.set('cgi','viewspam_max',max)
   config.write(fp)
   fp.close()
-  print "Location: %(me)s?COMMAND=VIEW_SPAM&MBOX_IDX=%(mbox_idx)d\n"%CONFIG
+  print("Location: %(me)s?COMMAND=VIEW_SPAM&MBOX_IDX=%(mbox_idx)d\n"%CONFIG)
   
 def ViewSpam():
   alerts = getAlerts()
@@ -698,10 +697,9 @@ statistical calculations.
 template_re = re.compile(r'\$([A-Z0-9]*)\$')
 
 def output(DATA):
-  print "Content-type: text/html\n"
-  FILE = open('template.html','r')
-  print template_re.sub(lambda m: DATA.get(m.expand(r'\1'),''),FILE.read())
-  FILE.close()
+  with open('template.html','r') as FILE:
+    print("Content-type: text/html\n")
+    print(template_re.sub(lambda m: DATA.get(m.expand(r'\1'),''),FILE.read()))
 
 def SafeVars(PAIRS):
   url = ''

@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # $Log$
 # Revision 2.5  2003/10/22 21:47:32  stuart
 # Reprocess false positives also.
@@ -15,8 +15,7 @@ import time
 import Dspam
 
 def log(*msg):
-  for i in msg: print i,
-  print
+  print(*msg)
 
 for fname in sys.argv[1:]:
   if not os.path.isfile(fname): continue
@@ -51,4 +50,4 @@ for fname in sys.argv[1:]:
       fp.close()
       os.unlink(lockname)
     except OSError:
-      print 'Busy, try later'
+      print('Busy, try later')

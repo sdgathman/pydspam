@@ -1,3 +1,4 @@
+from __future__ import print_function
 import unittest
 import os
 import os.path
@@ -70,9 +71,7 @@ class pyDSpamTestCase(unittest.TestCase):
     # check that message got written to overflow
     self.failUnless(os.path.exists(overflow))
   def log(self,*msg):
-    for s in msg:
-      print s,
-    print
+    print(*msg)
 
   def testProcess(self):
     ds = self.ds
@@ -196,9 +195,10 @@ if __name__ == '__main__':
 	  s2 = unittest.makeSuite(tagTestCase,'test')
 	  unittest.TextTestRunner(verbosity=2).run(s2)
 	  continue
-        print fname
-	txt = open(fname).read()
-	print ds.check_spam('tonto',txt)
+        print(fname)
+        with open(fname) as fp:
+	  txt = fp.read()
+	  print(ds.check_spam('tonto',txt))
     else:
       unittest.main()
   finally:

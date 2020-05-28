@@ -1,3 +1,4 @@
+from __future__ import print_function
 import unittest
 import os
 import shutil
@@ -37,7 +38,7 @@ class DSpamTestCase(unittest.TestCase):
     dspam_lock = userdir(home,user,'lock')
     with open(dspam_lock,'a') as fp:
       get_fcntl_lock(fp.fileno())
-      #print dspam_lock
+      #print(dspam_lock)
       free_fcntl_lock(fp.fileno())
 
   def testCorpus(self):
@@ -47,7 +48,7 @@ class DSpamTestCase(unittest.TestCase):
       for ham in hams:
 	msg = open('test/'+ham).read()
 	msg = '\n'.join(msg.splitlines()).replace('\0','')
-	#print 'process corpus',ham
+	#print('process corpus',ham)
 	ds.process(msg)
       self.assertEqual(ds.totals,(0,len(hams),0,0,0,len(hams),0,0))
     with dspam(DSM_PROCESS) as ds:
@@ -149,15 +150,15 @@ class DSpamTestCase(unittest.TestCase):
       self.assertEqual(ds.result,DSR_ISSPAM)
       if False and ds.probability >= 1.0:
         open('msg.out','w').write(msg)
-        print omsg
-	print '------'
+        print(omsg)
+	print('------')
 	for n,v in factors:
-	  print n,v
-	print '------'
-	print ds.probability
-	print '------'
+	  print(n,v)
+	print('------')
+	print(ds.probability)
+	print('------')
 	for n,v in ds.factors:
-	  print n,v
+	  print(n,v)
       self.failUnless(ds.probability < 1.0)
       self.assertEqual(ds.totals,totals)
       sig = ds.signature
