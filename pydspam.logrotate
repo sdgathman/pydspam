@@ -3,5 +3,6 @@
   nocompress
   rotate 10
   create 0660 dspam mail
+  su dspam mail
   nodateext
 }
