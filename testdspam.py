@@ -36,7 +36,7 @@ class DSpamTestCase(unittest.TestCase):
 
   def testUserdir(self):
     dspam_lock = userdir(home,user,'lock')
-    with open(dspam_lock,'a') as fp:
+    with open(dspam_lock,'ab') as fp:
       get_fcntl_lock(fp.fileno())
       #print(dspam_lock)
       free_fcntl_lock(fp.fileno())
@@ -46,25 +46,25 @@ class DSpamTestCase(unittest.TestCase):
       ds.source = DSS_CORPUS
       ds.classification = DSR_ISINNOCENT
       for ham in hams:
-	msg = open('test/'+ham).read()
-	msg = '\n'.join(msg.splitlines()).replace('\0','')
-	#print('process corpus',ham)
-	ds.process(msg)
+        msg = open('test/'+ham,'rb').read()
+        msg = b'\n'.join(msg.splitlines()).replace(b'\0',b'')
+        #print('process corpus',ham)
+        ds.process(msg)
       self.assertEqual(ds.totals,(0,len(hams),0,0,0,len(hams),0,0))
     with dspam(DSM_PROCESS) as ds:
       ds.source = DSS_CORPUS
       ds.classification = DSR_ISSPAM
       for spam in spams:
-	msg = open('test/'+spam).read()
-	msg = '\n'.join(msg.splitlines())
-	ds.process(msg)
+        msg = open('test/'+spam,'rb').read()
+        msg = b'\n'.join(msg.splitlines())
+        ds.process(msg)
       self.assertEqual(ds.totals,
-	  (len(spams),len(hams),0,0,len(spams),len(hams),0,0))
+          (len(spams),len(hams),0,0,len(spams),len(hams),0,0))
 
   def testClassify(self):
     with dspam(DSM_CLASSIFY,DSF_SIGNATURE) as ds:
-      msg = open('test/'+hams[0]).read()
-      msg = '\n'.join(msg.splitlines()).replace('\0','')
+      msg = open('test/'+hams[0],'rb').read()
+      msg = b'\n'.join(msg.splitlines()).replace(b'\0','')
       ds.process(msg)
       totals = ds.totals
       sig = ds.signature
@@ -89,28 +89,28 @@ class DSpamTestCase(unittest.TestCase):
       # add lots of ham
       msglist = []
       for ham in hams:
-	msg = open('test/'+ham).read()
-	msg = '\n'.join(msg.splitlines()).replace('\0','')
-	msglist.append(msg)
+        msg = open('test/'+ham,'rb').read()
+        msg = b'\n'.join(msg.splitlines()).replace(b'\0','')
+        msglist.append(msg)
       for seq in xrange(count):
-	for msg in msglist:
-	  ds.process(msg)
-	  self.assertEqual(ds.result,DSR_ISINNOCENT)
+        for msg in msglist:
+          ds.process(msg)
+          self.assertEqual(ds.result,DSR_ISINNOCENT)
       self.assertEqual(ds.totals,(0,hlen*count,0,0,0,0,0,0))
 
       # add lots of spam and save the sigs
       sigs = []
       msglist = []
       for spam in spams:
-	msg = open('test/'+spam).read()
-	msg = '\n'.join(msg.splitlines())
-	msglist.append(msg)
+        msg = open('test/'+spam,'rb').read()
+        msg = b'\n'.join(msg.splitlines())
+        msglist.append(msg)
       for seq in xrange(count):
-	for msg in msglist:
-	  ds.process(msg)
-	  # don't know its spam yet
-	  self.assertEqual(ds.result,DSR_ISINNOCENT)
-	  sigs.append(ds.signature)
+        for msg in msglist:
+          ds.process(msg)
+          # don't know its spam yet
+          self.assertEqual(ds.result,DSR_ISINNOCENT)
+          sigs.append(ds.signature)
 
       # now tell it about all that spam
       self.assertEqual(ds.totals,(0,tlen*count,0,0,0,0,0,0))
@@ -120,7 +120,7 @@ class DSpamTestCase(unittest.TestCase):
       ds.source = DSS_ERROR
       ds.training_mode = DST_TEFT
       for spamsig in sigs:
-	ds.process(None,sig=spamsig)
+        ds.process(None,sig=spamsig)
       self.assertEqual(ds.totals,(slen*count,hlen*count,slen*count,0,0,0,0,0))
 
     # exactly the same spam should get rejected with prob = 1.0
@@ -149,16 +149,16 @@ class DSpamTestCase(unittest.TestCase):
       ds.process(msg)
       self.assertEqual(ds.result,DSR_ISSPAM)
       if False and ds.probability >= 1.0:
-        open('msg.out','w').write(msg)
+        open('msg.out','wb').write(msg)
         print(omsg)
-	print('------')
-	for n,v in factors:
-	  print(n,v)
-	print('------')
-	print(ds.probability)
-	print('------')
-	for n,v in ds.factors:
-	  print(n,v)
+        print('------')
+        for n,v in factors:
+          print(n,v)
+        print('------')
+        print(ds.probability)
+        print('------')
+        for n,v in ds.factors:
+          print(n,v)
       self.failUnless(ds.probability < 1.0)
       self.assertEqual(ds.totals,totals)
       sig = ds.signature

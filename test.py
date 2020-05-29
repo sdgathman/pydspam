@@ -1,6 +1,7 @@
 import unittest
 import testdspam
 import testDspam
+import testcgi
 
 def suite(): 
   s = unittest.TestSuite()

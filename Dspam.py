@@ -26,17 +26,23 @@
 import os
 import time
 import dspam
-import bsddb
+try:
+  import bsddb3 as bsddb
+except:
+  try:
+    import bsddb
+  except:
+    bsddb = None
 import random
 import struct
 import urllib
 # the email package is buggy handling message attachments, so
 # use the mime package from milter instead
 import mime
-import StringIO
-import thread
 
-from email.Encoders import encode_base64, encode_quopri
+import threading
+
+from email.encoders import encode_base64, encode_quopri
 from contextlib import contextmanager
 
 def _configure_dict():
@@ -69,12 +75,12 @@ dspam.libdspam_init(os.path.join(PKGLIBDIR,'libhash_drv.so'))
 
 VERSION = "1.3.1" # abi compatibility, not package version
 
-_seq_lock = thread.allocate_lock()
+_seq_lock = threading.Lock()
 _seq = 0
 
 @contextmanager 
 def file_lock(fname):
-  with open(fname,'a') as fp:
+  with open(fname,'ab') as fp:
     dspam.get_fcntl_lock(fp.fileno())
     yield fp
     dspam.free_fcntl_lock(fp.fileno())
@@ -96,6 +102,7 @@ def create_signature_id():
 # @param sigfile if given, a bsddb database to use instead of the dspam driver
 def put_signature(ds,sig,sigfile=None):
   if sigfile:
+    if not bsddb: raise Exception("no bsddb module")
     db = bsddb.btopen(sigfile,'c')
     try:
       key = create_signature_id()
@@ -135,8 +142,8 @@ def _tag_part(msg,sigkey):
     encode_quopri(msg)
 
 ## Add DSPAM tag to message. We do this the old htmlish way.
-# @param msg the original message to tag
-# @param sigkey the signature tag
+# @param msg the original message bytes to tag
+# @param sigkey the signature tag str
 # @param prob probability for X-Dspam-Score header field if supplied
 # @param factors factors for X-Dspam-Factors header field if supplied
 def add_signature_tag(msg,sigkey,prob=None,factors=None):
@@ -321,7 +328,7 @@ class DSpamDirectory(object):
   ## Check spaminess of a message.
   # 
   # @param user	the dspam user (email account)
-  # @param txt	the message as collected from the MTA
+  # @param txt	the message as bytes collected from the MTA
   # @param recipients	If provided, a list of recipients to record in 
   #	quarantined messages to assist later delivery.
   # @param classify	
@@ -335,7 +342,7 @@ class DSpamDirectory(object):
 
     dspam_dict,sigfile,mbox = self.user_files(user)
 
-    savmask = os.umask(6) # mail group must be able write dict and sig
+    savmask = os.umask(0o006) # mail group must be able write dict and sig
     try:
       _seq_lock.acquire()	# for drivers that aren't thread safe
       txt = convert_eol(txt)
@@ -384,7 +391,7 @@ class DSpamDirectory(object):
 
   ## Add signature key to message, and quarantine if spammy.
   # The results of the last check_spam as used.
-  # @param txt the message
+  # @param txt the message bytes
   # @param sig the signature
   # @param recipients list of recipients for later delivery
   def _add_sig(self,txt,sig,recipients=None):
@@ -396,7 +403,7 @@ class DSpamDirectory(object):
       return txt
     try:
       # add signature key to message
-      msg = mime.message_from_file(StringIO.StringIO(txt))
+      msg = mime.message_from_binary_file(mime.BytesIO(txt))
       msg.headerchange = self.headerchange
       add_signature_tag(msg,sigkey,self.probability,self.factors)
       # quarantine mail if dspam thinks it looks spammy
@@ -405,9 +412,9 @@ class DSpamDirectory(object):
         if recipients:
           msg['X-Dspam-Recipients'] = ', '.join(recipients)
         txt = msg.as_string()
-        with open(self.mbox,'a') as fp:
-          if not txt.startswith('From '):
-            fp.write('From dspam %s\n' % time.ctime())
+        with open(self.mbox,'ab') as fp:
+          if not txt.startswith(b'From '):
+            fp.write(b'From dspam %s\n' % time.ctime())
           fp.write(txt)
         return None
       txt = msg.as_string()

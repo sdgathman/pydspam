@@ -186,7 +186,7 @@ _dspam_process(PyObject *dspamobj, PyObject *args, PyObject *kwds) {
    * to free signature */
   if (ctx->signature) {
     char *buf = ctx->signature->data;
-    unsigned long len = ctx->signature->length;
+    Py_ssize_t len = ctx->signature->length;
     free(ctx->signature);
     ctx->signature = 0;
     if (buf == 0) len = 0;

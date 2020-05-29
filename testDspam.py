@@ -5,9 +5,8 @@ import os.path
 import shutil
 import Dspam
 import dspam
-import bsddb
 import mailbox
-from email.Parser import Parser
+from email.parser import Parser
 
 userdir = 'testdir'	# test user directory
 
@@ -19,17 +18,17 @@ class pyDSpamTestCase(unittest.TestCase):
   def setUp(self):
     try:
       shutil.rmtree(userdir+'/data')
-      savmask = os.umask(006) # mail group must be able write dict and sig
+      savmask = os.umask(0o006) # mail group must be able write dict and sig
       try:
-	os.makedirs(userdir+'/data')
+        os.makedirs(userdir+'/data')
       finally: os.umask(savmask)
     except OSError: pass
     ds = Dspam.DSpamDirectory(userdir)
-    fp = open(ds.groupfile,'w')
+    fp = open(ds.groupfile,'wb')
     fp.write('\n'.join([ "bms:stuart,ed,alb,dmm", "unilit:sil,larry" ])+'\n')
     fp.close()
     # innoculations
-    fp = open(os.path.join(userdir,'innoculation'),'w')
+    fp = open(os.path.join(userdir,'innoculation'),'wb')
     fp.write('\n'.join([ "larry:tonto,stuart", "stuart:sil,tonto" ])+'\n')
     fp.close()
     self.ds = ds
@@ -53,9 +52,9 @@ class pyDSpamTestCase(unittest.TestCase):
     ds = self.ds
     overflow = os.path.join(userdir,'tonto.spam')
     self.failIf(os.path.exists(overflow))
-    txt = open('test/samp1').read()	# innocent mail
+    txt = open('test/samp1','rb').read()	# innocent mail
     ds.check_spam('tonto',txt)
-    txt = open('test/spam7').read()	# spam mail
+    txt = open('test/spam7','rb').read()	# spam mail
     txt = ds.check_spam('tonto',txt)
     # OK, now lock the dict with another context
     ds1 = dspam.dspam(ds.dspam_dict,dspam.DSM_PROCESS,0)
@@ -64,7 +63,7 @@ class pyDSpamTestCase(unittest.TestCase):
     ds.add_spam('tonto',txt)
     try:
       ds.check_spam('tonto',txt)
-    except dspam.error,x:
+    except dspam.error as x:
       if not x.strerror: x.strerror = x.args[0]
       self.failUnless(x.strerror == 'Lock failed')
     ds1.unlock()
@@ -81,7 +80,7 @@ class pyDSpamTestCase(unittest.TestCase):
     hams = HAMS
     #ds.log = self.log
     for fname in spams + hams:
-      txt = open(os.path.join('test',fname)).read()
+      txt = open(os.path.join('test',fname),'rb').read()
       msgs[fname] = ds.check_spam('tonto',txt)
       self.assertEqual(ds.result,dspam.DSR_ISINNOCENT)
     self.assertEqual(ds.totals,(0,len(msgs),0,0,0,0,0,0))
@@ -89,11 +88,11 @@ class pyDSpamTestCase(unittest.TestCase):
     # check that sigs are all present
     with ds.dspam_ctx(dspam.DSM_TOOLS) as db:
       for fname,txt in msgs.iteritems():
-	ntxt,tag = Dspam.extract_signature_tags(txt)
-	if not tag:
-	  with open('msg.out','w') as fp: fp.write(txt)
-	self.assertEqual(len(tag),1,fname+' missing tag')
-	self.failUnless(db.verify_signature(tag[0]))
+        ntxt,tag = Dspam.extract_signature_tags(txt)
+        if not tag:
+          with open('msg.out','wb') as fp: fp.write(txt)
+        self.assertEqual(len(tag),1,fname+' missing tag')
+        self.failUnless(db.verify_signature(tag[0]))
 
     for fname in spams:
       txt = ds.add_spam('tonto',msgs[fname])		# feedback spam
@@ -107,17 +106,17 @@ class pyDSpamTestCase(unittest.TestCase):
     dspam_dict,sigfile,mbox = ds.user_files('tonto')
     with ds.dspam_ctx(dspam.DSM_TOOLS) as db:
       for fname in spams:
-	txt = msgs[fname]
-	tag = Dspam.extract_signature_tags(txt)
-	self.failIf(db.verify_signature(tag[0]))
+        txt = msgs[fname]
+        tag = Dspam.extract_signature_tags(txt)
+        self.failIf(db.verify_signature(tag[0]))
     
     # receive and feedback spams until one gets quarantined
     while True:
-      txt = open('test/spam7').read()	# spam mail
+      txt = open('test/spam7','rb').read()	# spam mail
       txt = ds.check_spam('tonto',txt)
       if not txt: break	# message was quarantined
       ds.add_spam('tonto',txt)
-      txt = open('test/samp1').read()	# innocent mail
+      txt = open('test/samp1','rb').read()	# innocent mail
       txt = ds.check_spam('tonto',txt)
       self.failUnless(txt)		# should not have been quarantined
 
@@ -125,15 +124,15 @@ class pyDSpamTestCase(unittest.TestCase):
     # I manually ran dspam_anal.py to find spammy keywords after
     # the above, then constructed a message that is detected as spam.
 
-    txt = open('test/fp1').read()	# innocent mail that looks spammy
+    txt = open('test/fp1','rb').read()	# innocent mail that looks spammy
     txt = ds.check_spam('tonto',txt)
     self.failIf(txt)	# message should have been quarrantined
-    fp = open(mbox)
+    fp = open(mbox,'rb')
     parser = Parser()
     mb = mailbox.PortableUnixMailbox(fp,parser.parse)
     msg = mb.next()	# first message is spam
     self.assertEqual(msg.get('subject'),
-	'Just another "Crappy Day in Paradise" here @ the Ranch')
+        'Just another "Crappy Day in Paradise" here @ the Ranch')
     msg = mb.next()	# get 2nd message, which should be our false positive
     self.assertEqual(msg.get('subject'),'Just another unit test')
     txt = msg.as_string()
@@ -142,7 +141,7 @@ class pyDSpamTestCase(unittest.TestCase):
     self.assertEqual(tot[3],1)	# should be 1 FP
 
     # now receive the innocent mail again, it should not look spammy anymore.
-    txt = open('test/fp1').read()	# now innocent looking mail
+    txt = open('test/fp1','rb').read()	# now innocent looking mail
     txt = ds.check_spam('tonto',txt)
     # haven't got stats right
     #self.failUnless(txt)
@@ -152,8 +151,8 @@ import mime
 class tagTestCase(unittest.TestCase):
 
   def testtag(self):
-    fp = file('test/spam1')
-    msg = mime.message_from_file(fp)
+    with open('test/spam1','rb') as fp:
+      msg = mime.message_from_file(fp)
     self.assertTrue(not msg.get_payload() is None)
     sigkey = 'TESTING123'
     Dspam.add_signature_tag(msg,sigkey,prob=0.99)
@@ -167,7 +166,7 @@ class tagTestCase(unittest.TestCase):
   # with an example.  So I punted and tested that extraction can correct
   # the problem in most cases by manually adding a split tag to the test msg.
   def testquote(self):
-    fp = file('test/spam3')
+    fp = open('test/spam3','rb')
     msg = mime.message_from_file(fp)
     sigkey = 'TESTING456AVERYLONGKEY'
     Dspam.add_signature_tag(msg,sigkey,prob=0.99)
@@ -192,13 +191,13 @@ if __name__ == '__main__':
       ds = Dspam.DSpamDirectory(userdir)
       for fname in sys.argv[1:]:
         if fname == 'tag':
-	  s2 = unittest.makeSuite(tagTestCase,'test')
-	  unittest.TextTestRunner(verbosity=2).run(s2)
-	  continue
+          s2 = unittest.makeSuite(tagTestCase,'test')
+          unittest.TextTestRunner(verbosity=2).run(s2)
+          continue
         print(fname)
-        with open(fname) as fp:
-	  txt = fp.read()
-	  print(ds.check_spam('tonto',txt))
+        with open(fname,'rb') as fp:
+          txt = fp.read()
+          print(ds.check_spam('tonto',txt))
     else:
       unittest.main()
   finally:
