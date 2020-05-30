@@ -127,15 +127,21 @@ def put_signature(ds,sig,sigfile=None):
 ## Add tag to a non-multipart message.
 def _tag_part(msg,sigkey):
   assert not msg.is_multipart()
-  tag = "\n<!DSPAM:%s>\n\n" % sigkey
+  tag = b"\n<!DSPAM:%b>\n\n" % sigkey
   cte = msg.get('content-transfer-encoding', '').lower()
+  ct = msg.get_content_maintype()
   recode = cte == 'base64'
-  txt = msg.get_payload(decode=recode)
-  if msg.get_content_maintype() == 'text':
-      if not txt.endswith('\n'):
-        tag = '\n' + tag
-      if txt.rstrip().lower().endswith("</html"):
-        tag = '>' + tag
+  # can be str or bytes
+  if recode:
+    txt = msg.get_payload(decode=True)
+  else:
+    txt = msg.get_payload(decode=False).encode()
+  print('_tag_part:',ct,cte,type(txt))
+  if ct == 'text':
+      if not txt.endswith(b'\n'):
+        tag = b'\n' + tag
+      if txt.rstrip().lower().endswith(b"</html"):
+        tag = b'>' + tag
   msg.set_payload(txt + tag)
   if recode:
     del msg["content-transfer-encoding"]
@@ -179,19 +185,19 @@ def extract_signature_tags(txt):
   tags = []
   beg = 0
   while True:
-    nbeg = txt.find('<!DSPAM:',beg)
+    nbeg = txt.find(b'<!DSPAM:',beg)
     if nbeg < 0:
-      nbeg = txt.find('<!--DSPAM:',beg)
+      nbeg = txt.find(b'<!--DSPAM:',beg)
       if nbeg < 0: break
       offset = 10
-      endpat = '-->'
+      endpat = b'-->'
     else:
       offset = 8
-      endpat = '>'
+      endpat = b'>'
     beg = nbeg + offset
     end = txt.find(endpat,beg)
     if end > beg and end - beg < 64:
-      tags.append(txt[beg:end].replace('=\r\n',''))
+      tags.append(txt[beg:end].replace(b'=\r\n',b''))
       beg -= offset
       txt = txt[:beg] + txt[end+len(endpat):]
   return (txt,tags)
@@ -231,8 +237,8 @@ def parse_groups(groupfile,dups=False):
 # @return the message with '\n' as line separator
 def convert_eol(txt):
   txt = txt.splitlines()
-  txt.append('')
-  return '\n'.join(txt).replace('\x00','')
+  txt.append(b'')
+  return b'\n'.join(txt).replace(b'\x00',b'')
 
 ## Operations on the DSPAM directory.
 class DSpamDirectory(object):
@@ -371,7 +377,7 @@ class DSpamDirectory(object):
             with self.dspam_ctx(dspam.DSM_PROCESS,dspam.DSF_SIGNATURE) as ds:
               ds.classification = dspam.DSR_ISSPAM
               ds.source = dspam.DSS_ERROR
-              ds.process(None,sig=sig) # force back to SPAM
+              ds.process(b'',sig=sig) # force back to SPAM
             self.result = force_result
           self._innoc(user,[sig],force_result)
           if not quarantine: return None
@@ -380,7 +386,7 @@ class DSpamDirectory(object):
             with self.dspam_ctx(dspam.DSM_PROCESS,dspam.DSF_SIGNATURE) as ds:
               ds.classification = dspam.DSR_ISINNOCENT
               ds.source = dspam.DSS_ERROR
-              ds.process(None,sig=sig) # force back to INNOCENT
+              ds.process(b'',sig=sig) # force back to INNOCENT
             self.result = force_result
           self._innoc(user,[sig],force_result)
 
@@ -468,7 +474,7 @@ class DSpamDirectory(object):
             sigs.append(sig)
             ds.classification = op
             ds.source = dspam.DSS_ERROR
-            ds.process(None,sig=sig)	# reverse stats
+            ds.process(b'',sig=sig)	# reverse stats
             ds.delete_signature(tag)
       try: 
         self.write_web_stats(self.totals)
@@ -505,7 +511,7 @@ class DSpamDirectory(object):
             ds.classification = op
             ds.source = dspam.DSS_INOCULATION
             for sig in sigs:
-              ds.process(None,sig=sig)
+              ds.process(b'',sig=sig)
       except Exception as x:
         self.log('FAIL:',x)
         # not critical if innoculation fails, so keep going

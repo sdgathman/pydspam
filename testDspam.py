@@ -24,13 +24,11 @@ class pyDSpamTestCase(unittest.TestCase):
       finally: os.umask(savmask)
     except OSError: pass
     ds = Dspam.DSpamDirectory(userdir)
-    fp = open(ds.groupfile,'wb')
-    fp.write('\n'.join([ "bms:stuart,ed,alb,dmm", "unilit:sil,larry" ])+'\n')
-    fp.close()
+    with open(ds.groupfile,'w') as fp:
+      fp.write('\n'.join([ "bms:stuart,ed,alb,dmm", "unilit:sil,larry" ])+'\n')
     # innoculations
-    fp = open(os.path.join(userdir,'innoculation'),'wb')
-    fp.write('\n'.join([ "larry:tonto,stuart", "stuart:sil,tonto" ])+'\n')
-    fp.close()
+    with open(os.path.join(userdir,'innoculation'),'w') as fp:
+      fp.write('\n'.join([ "larry:tonto,stuart", "stuart:sil,tonto" ])+'\n')
     self.ds = ds
   
   def testGroups(self):
@@ -87,7 +85,7 @@ class pyDSpamTestCase(unittest.TestCase):
 
     # check that sigs are all present
     with ds.dspam_ctx(dspam.DSM_TOOLS) as db:
-      for fname,txt in msgs.iteritems():
+      for fname,txt in msgs.items():
         ntxt,tag = Dspam.extract_signature_tags(txt)
         if not tag:
           with open('msg.out','wb') as fp: fp.write(txt)
@@ -154,10 +152,10 @@ class tagTestCase(unittest.TestCase):
     with open('test/spam1','rb') as fp:
       msg = mime.message_from_file(fp)
     self.assertTrue(not msg.get_payload() is None)
-    sigkey = 'TESTING123'
+    sigkey = b'TESTING123'
     Dspam.add_signature_tag(msg,sigkey,prob=0.99)
     self.assertTrue(msg.ismodified())
-    txt,tags = Dspam.extract_signature_tags(msg.as_string())
+    txt,tags = Dspam.extract_signature_tags(msg.as_bytes())
     self.assertEqual(len(tags),1)
     self.assertEqual(sigkey,tags[0])
 
@@ -168,10 +166,10 @@ class tagTestCase(unittest.TestCase):
   def testquote(self):
     fp = open('test/spam3','rb')
     msg = mime.message_from_file(fp)
-    sigkey = 'TESTING456AVERYLONGKEY'
+    sigkey = b'TESTING456AVERYLONGKEY'
     Dspam.add_signature_tag(msg,sigkey,prob=0.99)
     self.assertTrue(msg.ismodified())
-    txt,tags = Dspam.extract_signature_tags(msg.as_string())
+    txt,tags = Dspam.extract_signature_tags(msg.as_bytes())
     self.assertEqual(len(tags),2)
     self.assertEqual(sigkey,tags[1])
     self.assertEqual('TESTING123LONGTAG',tags[0])

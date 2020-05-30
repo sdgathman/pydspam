@@ -64,7 +64,7 @@ class DSpamTestCase(unittest.TestCase):
   def testClassify(self):
     with dspam(DSM_CLASSIFY,DSF_SIGNATURE) as ds:
       msg = open('test/'+hams[0],'rb').read()
-      msg = b'\n'.join(msg.splitlines()).replace(b'\0','')
+      msg = b'\n'.join(msg.splitlines()).replace(b'\0',b'')
       ds.process(msg)
       totals = ds.totals
       sig = ds.signature
@@ -76,7 +76,7 @@ class DSpamTestCase(unittest.TestCase):
     with dspam(DSM_PROCESS,DSF_SIGNATURE) as ds:
       ds.source = DSS_ERROR
       ds.classification = DSR_ISSPAM
-      ds.process(None,sig=sig)
+      ds.process(b'',sig=sig)
       self.assertEqual(ds.totals,(1,0,1,0,0,0,0,0))
 
   # test mime parameter parsing
@@ -90,9 +90,9 @@ class DSpamTestCase(unittest.TestCase):
       msglist = []
       for ham in hams:
         msg = open('test/'+ham,'rb').read()
-        msg = b'\n'.join(msg.splitlines()).replace(b'\0','')
+        msg = b'\n'.join(msg.splitlines()).replace(b'\0',b'')
         msglist.append(msg)
-      for seq in xrange(count):
+      for seq in range(count):
         for msg in msglist:
           ds.process(msg)
           self.assertEqual(ds.result,DSR_ISINNOCENT)
@@ -105,7 +105,7 @@ class DSpamTestCase(unittest.TestCase):
         msg = open('test/'+spam,'rb').read()
         msg = b'\n'.join(msg.splitlines())
         msglist.append(msg)
-      for seq in xrange(count):
+      for seq in range(count):
         for msg in msglist:
           ds.process(msg)
           # don't know its spam yet
@@ -120,7 +120,7 @@ class DSpamTestCase(unittest.TestCase):
       ds.source = DSS_ERROR
       ds.training_mode = DST_TEFT
       for spamsig in sigs:
-        ds.process(None,sig=spamsig)
+        ds.process(b'',sig=spamsig)
       self.assertEqual(ds.totals,(slen*count,hlen*count,slen*count,0,0,0,0,0))
 
     # exactly the same spam should get rejected with prob = 1.0
@@ -167,13 +167,13 @@ class DSpamTestCase(unittest.TestCase):
     with dspam(DSM_PROCESS,DSF_SIGNATURE) as ds:
       ds.classification = DSR_ISSPAM
       ds.source = DSS_CORPUS
-      ds.process(None,sig=sig)
+      ds.process(b'',sig=sig)
       self.assertEqual(ds.totals,
       	(slen*count + 2,hlen*count,slen*count,0,1,0,0,0))
 
       ds.classification = DSR_ISINNOCENT
       ds.source = DSS_ERROR
-      ds.process(None,sig=spamsig)
+      ds.process(b'',sig=spamsig)
       self.assertEqual(ds.totals,
         (slen*count + 1,hlen*count+1,slen*count,1,1,0,0,0))
 

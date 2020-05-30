@@ -145,7 +145,7 @@ static PyObject *
 _dspam_process(PyObject *dspamobj, PyObject *args, PyObject *kwds) {
   dspam_Object *self = (dspam_Object *)dspamobj;
   DSPAM_CTX *ctx = self->ctx;
-  char *message = 0;
+  const char *message;
   struct _ds_spam_signature sig;
   char *data = 0;
   int len;
@@ -160,8 +160,14 @@ _dspam_process(PyObject *dspamobj, PyObject *args, PyObject *kwds) {
     free(ctx->signature);
     ctx->signature = 0;
   }
+#if PY_MAJOR_VERSION >= 3
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "y|z#:process", kwlist,
+      &message,&data,&len)) return NULL;
+#else
   if (!PyArg_ParseTupleAndKeywords(args, kwds, "z|z#:process", kwlist,
       &message,&data,&len)) return NULL;
+#endif
+  if (message && !*message) message = NULL;
   if (data) {
     sig.data = data;
     sig.length = len;
