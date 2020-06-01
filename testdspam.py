@@ -136,12 +136,12 @@ class DSpamTestCase(unittest.TestCase):
 
     # a slightly different version of a spam should still get rejected
     lines = msg.splitlines()
-    lines[0] = "From: lover <f234235@spam.com>"
-    lines[1] = "To: victim <victim@lamb.com>"
-    lines[2] = "Subject: Approval"
-    lines = filter(lambda ln: ln.find("Q2Xet") < 0,lines)
+    lines[0] = b"From: lover <f234235@spam.com>"
+    lines[1] = b"To: victim <victim@lamb.com>"
+    lines[2] = b"Subject: Approval"
+    lines = filter(lambda ln: ln.find(b"Q2Xet") < 0,lines)
     omsg = msg
-    msg = '\n'.join(lines)
+    msg = b'\n'.join(lines)
     self.assertFalse(msg == omsg)
 
     # test DSF_CLASSIFY

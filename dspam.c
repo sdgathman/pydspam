@@ -196,15 +196,13 @@ _dspam_process(PyObject *dspamobj, PyObject *args, PyObject *kwds) {
     free(ctx->signature);
     ctx->signature = 0;
     if (buf == 0) len = 0;
+#if PY_MAJOR_VERSION >= 3
+    Py_XDECREF(self->sig);
+    self->sig = PyBytes_FromStringAndSize(buf,len);
+#else
     if (!self->sig || PySequence_Size(self->sig) != len) {
       Py_XDECREF(self->sig);
-#if PY_MAJOR_VERSION >= 3
-      self->sig = PyByteArray_FromStringAndSize(buf,len);
-      free(buf);
-      buf = 0; len = 0;
-#else
       self->sig = PyBuffer_New(len);
-#endif
     }
     if (self->sig && buf) {
       void *data;
@@ -216,6 +214,7 @@ _dspam_process(PyObject *dspamobj, PyObject *args, PyObject *kwds) {
 	self->sig = 0;
       }
     }
+#endif
     free(buf);
   }
   else {
