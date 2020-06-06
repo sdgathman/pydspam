@@ -59,7 +59,8 @@
  * New libdspam API builds.
  */
 
-//#include <pthread.h>
+// we promise len args to '#' Py_Arg formats are Py_ssize_t
+#define PY_SSIZE_T_CLEAN	
 #include <Python.h>
 #include <structmember.h>
 //#define DEBUG 2		// if libdspam compiled with --enable-debug 
@@ -148,7 +149,7 @@ _dspam_process(PyObject *dspamobj, PyObject *args, PyObject *kwds) {
   const char *message;
   struct _ds_spam_signature sig;
   char *data = 0;
-  int len;
+  Py_ssize_t len;
   int rc;
   static char *kwlist[] = {"msg", "sig", 0};
   if (ctx == 0) {
@@ -413,7 +414,7 @@ _dspam_set_signature(PyObject *dspamctx, PyObject *args) {
   dspam_Object *self = (dspam_Object *)dspamctx;
   DSPAM_CTX *ctx = self->ctx;
   char *data;
-  int len;
+  Py_ssize_t len;
   const char *tag;
   struct _ds_spam_signature sig;
   if (!PyArg_ParseTuple(args, "ss#:set_signature",&tag,&data,&len)) return NULL;

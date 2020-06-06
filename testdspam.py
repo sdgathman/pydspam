@@ -46,8 +46,8 @@ class DSpamTestCase(unittest.TestCase):
       ds.source = DSS_CORPUS
       ds.classification = DSR_ISINNOCENT
       for ham in hams:
-        msg = open('test/'+ham,'rb').read()
-        msg = b'\n'.join(msg.splitlines()).replace(b'\0',b'')
+        with open('test/'+ham,'rb') as fp:
+          msg = b'\n'.join(fp.read().splitlines()).replace(b'\0',b'')
         #print('process corpus',ham)
         ds.process(msg)
       self.assertEqual(ds.totals,(0,len(hams),0,0,0,len(hams),0,0))
@@ -55,16 +55,16 @@ class DSpamTestCase(unittest.TestCase):
       ds.source = DSS_CORPUS
       ds.classification = DSR_ISSPAM
       for spam in spams:
-        msg = open('test/'+spam,'rb').read()
-        msg = b'\n'.join(msg.splitlines())
+        with open('test/'+spam,'rb') as fp:
+          msg = b'\n'.join(fp.read().splitlines())
         ds.process(msg)
       self.assertEqual(ds.totals,
           (len(spams),len(hams),0,0,len(spams),len(hams),0,0))
 
   def testClassify(self):
     with dspam(DSM_CLASSIFY,DSF_SIGNATURE) as ds:
-      msg = open('test/'+hams[0],'rb').read()
-      msg = b'\n'.join(msg.splitlines()).replace(b'\0',b'')
+      with open('test/'+hams[0],'rb') as fp:
+        msg = b'\n'.join(fp.read().splitlines()).replace(b'\0',b'')
       ds.process(msg)
       totals = ds.totals
       sig = ds.signature
@@ -89,7 +89,8 @@ class DSpamTestCase(unittest.TestCase):
       # add lots of ham
       msglist = []
       for ham in hams:
-        msg = open('test/'+ham,'rb').read()
+        with open('test/'+ham,'rb') as fp:
+          msg = fp.read()
         msg = b'\n'.join(msg.splitlines()).replace(b'\0',b'')
         msglist.append(msg)
       for seq in range(count):
@@ -102,7 +103,8 @@ class DSpamTestCase(unittest.TestCase):
       sigs = []
       msglist = []
       for spam in spams:
-        msg = open('test/'+spam,'rb').read()
+        with open('test/'+spam,'rb') as fp:
+          msg = fp.read()
         msg = b'\n'.join(msg.splitlines())
         msglist.append(msg)
       for seq in range(count):
@@ -159,7 +161,7 @@ class DSpamTestCase(unittest.TestCase):
         print('------')
         for n,v in ds.factors:
           print(n,v)
-      self.failUnless(ds.probability < 1.0)
+      self.assertTrue(ds.probability < 1.0)
       self.assertEqual(ds.totals,totals)
       sig = ds.signature
 
