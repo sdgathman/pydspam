@@ -417,7 +417,7 @@ _dspam_set_signature(PyObject *dspamctx, PyObject *args) {
   Py_ssize_t len;
   const char *tag;
   struct _ds_spam_signature sig;
-  if (!PyArg_ParseTuple(args, "ss#:set_signature",&tag,&data,&len)) return NULL;
+  if (!PyArg_ParseTuple(args, "sy#:set_signature",&tag,&data,&len)) return NULL;
   if (!ctx) {
     PyErr_SetString(DspamError, "Uninitialized DSPAM context");
     return NULL;
@@ -462,7 +462,7 @@ _dspam_get_signature(PyObject *dspamctx, PyObject *args) {
     return NULL;
   }
 #if PY_MAJOR_VERSION >= 3
-  o = PyByteArray_FromStringAndSize(sig.data,sig.length);
+  o = PyBytes_FromStringAndSize(sig.data,sig.length);
   if (!o) return NULL;
 #else
   o = PyBuffer_New(sig.length);

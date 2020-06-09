@@ -191,25 +191,25 @@ class ctx(object):
 
   ## Store a signature using the attached storage driver.  The tag
   # should be suitable for a filename.
-  # @param tag unique tag assigned to the signature
+  # @param tag str - unique tag assigned to the signature
   # @param sig Binary signature obtained from self.signature
   def set_signature(self,tag,sig): pass
 
   ## Retrieve a signature stored using the attached storage driver.  
   # Throws an exception if the tag is not present.  Use verify_signature to
   # check first.
-  # @param tag unique tag assigned to the signature
-  # @return the tag retreived
+  # @param tag str - unique tag assigned to the signature
+  # @return the tag str retrieved
   def get_signature(self,tag): pass
 
   ## Delete a signature stored using the attached storage driver.  
   # Throws an exception if the tag is not present.  
-  # @param tag unique tag assigned to the signature
+  # @param tag str - unique tag assigned to the signature
   def delete_signature(self,tag): pass
 
   ## Verify a signature stored using the attached storage driver.  
   # Use verify_signature to check first.
-  # @param tag unique tag assigned to the signature
+  # @param tag str - unique tag assigned to the signature
   # @return True if the tag still exists in storage
   def verify_signature(self,tag): pass
 

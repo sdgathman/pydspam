@@ -22,7 +22,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 # 
-
+from __future__ import print_function
 import os
 import time
 import dspam
@@ -35,7 +35,11 @@ except:
     bsddb = None
 import random
 import struct
-import urllib
+try:
+  from urllib.parse import quote
+  long = int
+except:
+  from urllib import quote
 # the email package is buggy handling message attachments, so
 # use the mime package from milter instead
 import mime
@@ -101,6 +105,7 @@ def create_signature_id():
 # @param sig the signature from the dspam.ctx
 # @param sigfile if given, a bsddb database to use instead of the dspam driver
 def put_signature(ds,sig,sigfile=None):
+  #print('put_signature',sigfile)
   if sigfile:
     if not bsddb: raise Exception("no bsddb module")
     db = bsddb.btopen(sigfile,'c')
@@ -120,14 +125,14 @@ def put_signature(ds,sig,sigfile=None):
         key = create_signature_id()
       ds.set_signature(key,sig)
     except Exception as x:
-      #print('put_signature:',x)
+      print('put_signature:',x)
       key = None
   return key
 
 ## Add tag to a non-multipart message.
 def _tag_part(msg,sigkey):
   assert not msg.is_multipart()
-  tag = b"\n<!DSPAM:%b>\n\n" % sigkey
+  tag = b"\n<!DSPAM:%s>\n\n" % sigkey.encode()
   cte = msg.get('content-transfer-encoding', '').lower()
   ct = msg.get_content_maintype()
   recode = cte == 'base64'
@@ -136,37 +141,42 @@ def _tag_part(msg,sigkey):
     txt = msg.get_payload(decode=True)
   else:
     txt = msg.get_payload(decode=False).encode()
-  print('_tag_part:',ct,cte,type(txt))
   if ct == 'text':
       if not txt.endswith(b'\n'):
         tag = b'\n' + tag
       if txt.rstrip().lower().endswith(b"</html"):
         tag = b'>' + tag
+  #print('_tag_part:',recode,ct,cte,type(txt),tag)
   msg.set_payload(txt + tag)
   if recode:
     del msg["content-transfer-encoding"]
     encode_quopri(msg)
+  cte = msg.get('content-transfer-encoding', '').lower()
+  #print('_tag_part_after:',cte)
 
 ## Add DSPAM tag to message. We do this the old htmlish way.
 # @param msg the original message bytes to tag
 # @param sigkey the signature tag str
 # @param prob probability for X-Dspam-Score header field if supplied
 # @param factors factors for X-Dspam-Factors header field if supplied
-def add_signature_tag(msg,sigkey,prob=None,factors=None):
+def add_signature_tag(msg,sigkey,prob=None,factors=None,trace=False):
   # add signature key to message
   if not prob == None:
     msg['X-DSpam-Score'] = '%2.5f'%prob
   if not factors == None:
     t = ['%d'%len(factors)]
     for tok,val in factors:
-      t.append('%s,%2.5f'%(urllib.quote(tok),val))
+      t.append('%s,%2.5f'%(quote(tok),val))
     msg['X-DSpam-Factors'] = '\n\t'.join(t)
+  if trace: print("sigkey =",sigkey)
   if not msg.is_multipart():
     _tag_part(msg,sigkey)
+    if trace: print("not multipart")
   else:
     # check whether any explicit html
     any_html = False
     for part in msg.walk():
+      ct = part.get_content_type()
       if not part.is_multipart() and part.get_content_type() == 'text/html':
         any_html = True
         break
@@ -175,12 +185,17 @@ def add_signature_tag(msg,sigkey,prob=None,factors=None):
       if not part.is_multipart():
         if part.get_content_type() == 'text/html' or not any_html and (
             part.get_content_maintype() == 'text' or not part.get_content_maintype()):
+        
+          if trace: print("part before:",part.as_bytes()[-40:])
           _tag_part(part,sigkey)
+          if trace: print("part after:",part.as_bytes()[-40:])
           break
     else:
       msg.epilogue = "\n\n<!DSPAM:%s>\n\n" % sigkey
 
 ## Extract all DSPAM tags from a message.
+# @param txt email message as bytes
+# @return <msg with tags removed> , <list of str tags removed>
 def extract_signature_tags(txt):
   tags = []
   beg = 0
@@ -197,7 +212,7 @@ def extract_signature_tags(txt):
     beg = nbeg + offset
     end = txt.find(endpat,beg)
     if end > beg and end - beg < 64:
-      tags.append(txt[beg:end].replace(b'=\r\n',b''))
+      tags.append(txt[beg:end].decode().replace('=\n',''))
       beg -= offset
       txt = txt[:beg] + txt[end+len(endpat):]
   return (txt,tags)
@@ -389,7 +404,6 @@ class DSpamDirectory(object):
               ds.process(b'',sig=sig) # force back to INNOCENT
             self.result = force_result
           self._innoc(user,[sig],force_result)
-
         return self._add_sig(txt,sig,recipients)
     finally:
       _seq_lock.release()
@@ -409,7 +423,7 @@ class DSpamDirectory(object):
       return txt
     try:
       # add signature key to message
-      msg = mime.message_from_binary_file(mime.BytesIO(txt))
+      msg = mime.message_from_file(mime.BytesIO(txt))
       msg.headerchange = self.headerchange
       add_signature_tag(msg,sigkey,self.probability,self.factors)
       # quarantine mail if dspam thinks it looks spammy
@@ -417,13 +431,13 @@ class DSpamDirectory(object):
         del msg['X-Dspam-Recipients']
         if recipients:
           msg['X-Dspam-Recipients'] = ', '.join(recipients)
-        txt = msg.as_string()
+        txt = msg.as_bytes()
         with open(self.mbox,'ab') as fp:
           if not txt.startswith(b'From '):
-            fp.write(b'From dspam %s\n' % time.ctime())
+            fp.write(b'From dspam %s\n' % time.ctime().encode())
           fp.write(txt)
         return None
-      txt = msg.as_string()
+      txt = msg.as_bytes()
     except:
       if True or self.result == dspam.DSR_ISSPAM: raise
     return txt
@@ -449,13 +463,13 @@ class DSpamDirectory(object):
     #  queue = True
     if queue:
       # queue for later
-      if not txt.startswith('From '):
-        txt = 'From %s %s\n' % (user,time.ctime()) + txt
+      if not txt.startswith(b'From '):
+        txt = ('From %s %s\n' % (user,time.ctime())).encode() + txt
       if op == dspam.DSR_ISSPAM:
         log = dspam.userdir(self.userdir,user,'spam')
       else:
         log = dspam.userdir(self.userdir,user,'fp')
-      with open(log,'a') as fp:
+      with open(log,'ab') as fp:
         fp.write(txt)
       if op != dspam.DSR_ISSPAM:
         # strip tags before forwarding on to user
@@ -538,8 +552,8 @@ class DSpamDirectory(object):
   # stored signatures with them.  It trains DSPAM with the signature,
   # setting the source to DSS_ERROR.  If no signature is found, it adds the
   # message as an innocent "corpus" (DSS_CORPUS).
-  # @param user the DSPAM user 
-  # @param txt the innocent message
+  # @param user str - the DSPAM user 
+  # @param txt the innocent message bytes
   def false_positive(self,user,txt):
     "Report a false positive, return message with tags removed."
     self.probability = 0.0
