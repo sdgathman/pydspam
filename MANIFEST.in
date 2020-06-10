@@ -21,3 +21,4 @@ include test/*
 include Notes*
 include NEWS
 include LICENSE
+include README.md

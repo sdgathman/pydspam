@@ -12,12 +12,3 @@ $(SRCTAR):
 
 gittar: $(SRCTAR)
 
-
-cvstar:
-	cvs export -r $(V) -d $(VERS) pydspam
-	tar cvf $(VERS).tar $(VERS)
-	gzip -v $(VERS).tar
-	rm -rf $(VERS)
-
-cvstag:	
-	cvs tag -F $(V)

@@ -1,26 +1,21 @@
 import os
-from distutils.core import setup, Extension
+import setuptools
 
-setup(name = "pydspam", version = "1.3.4",
+with open("README.md", "r") as fh:
+    long_description = fh.read()
+
+setuptools.setup(name = "pydspam", version = "1.4.0",
 	description="Python interface to libdspam",
-	long_description="""\
-This is a python extension module to enable python scripts to
-use libdspam functionality.  A higher level wrapper handles a
-signature database and quarantine mbox in a user directory.
-
-This release updates pydspam for dspam-3.10.2. Because the libdspam API changed
-drastically since dspam-2.6, this is considered a Beta release. I do have it
-running on several production systems with no problems.
-""",
+	long_description=long_description,
 	author="Stuart D. Gathman",
 	author_email="stuart@gathman.org",
 	maintainer="Stuart D. Gathman",
 	maintainer_email="stuart@gathman.org",
 	license="GPL",
-	url="http://www.bmsi.com/python/dspam.html",
+	url="https://github.com/sdgathman/pydspam",
 	py_modules=["Dspam"],
 	ext_modules=[
-	  Extension("dspam", ["dspam.c"],
+	  setuptools.Extension("dspam", ["dspam.c"],
 	    libraries=["dspam"],
 	    define_macros = [ ('LOGDIR',"/var/log/dspam"),
                               ('CONFIG_DEFAULT',"/etc/dspam.conf") ],
