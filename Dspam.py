@@ -6,7 +6,7 @@
 # "mail", and have a umask that will allow other applications in the mail group
 # read/write/execute access.
 #
-# COPYRIGHT (C) 2003-2015 Stuart D. Gathman
+# COPYRIGHT (C) 2003-2020 Stuart D. Gathman
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -77,7 +77,7 @@ PKGLIBDIR = os.path.join(CONFIGURE_ARGS['--libdir'],'dspam')
 # FIXME: parse /etc/dspam.conf
 dspam.libdspam_init(os.path.join(PKGLIBDIR,'libhash_drv.so'))
 
-VERSION = "1.3.1" # abi compatibility, not package version
+VERSION = "1.4.0" # abi compatibility, not package version
 
 _seq_lock = threading.Lock()
 _seq = 0
@@ -130,6 +130,9 @@ def put_signature(ds,sig,sigfile=None):
   return key
 
 ## Add tag to a non-multipart message.
+# @param msg mime.Message - Message object for the part of an
+#   email to be tagged
+# @param sigkey str
 def _tag_part(msg,sigkey):
   assert not msg.is_multipart()
   tag = b"\n<!DSPAM:%s>\n\n" % sigkey.encode()
@@ -155,10 +158,10 @@ def _tag_part(msg,sigkey):
   #print('_tag_part_after:',cte)
 
 ## Add DSPAM tag to message. We do this the old htmlish way.
-# @param msg the original message bytes to tag
-# @param sigkey the signature tag str
-# @param prob probability for X-Dspam-Score header field if supplied
-# @param factors factors for X-Dspam-Factors header field if supplied
+# @param msg mime.Message - the original message to tag
+# @param sigkey str - the signature tag 
+# @param prob float - probability for X-Dspam-Score header field if supplied
+# @param factors list<float> - factors for X-Dspam-Factors header field if supplied
 def add_signature_tag(msg,sigkey,prob=None,factors=None,trace=False):
   # add signature key to message
   if not prob == None:
@@ -195,7 +198,7 @@ def add_signature_tag(msg,sigkey,prob=None,factors=None,trace=False):
 
 ## Extract all DSPAM tags from a message.
 # @param txt email message as bytes
-# @return <msg with tags removed> , <list of str tags removed>
+# @return <message bytes with tags removed> , <list of str tags removed>
 def extract_signature_tags(txt):
   tags = []
   beg = 0
@@ -231,6 +234,7 @@ def extract_signature_tags(txt):
 #   'user3': ['group2'],
 #   'user4': ['group2'] }
 # </pre>
+# @param groupfile str - filename of group list
 def parse_groups(groupfile,dups=False):
   "Parse group file, return map from user -> [group ...]"
   groups = {}
@@ -248,8 +252,8 @@ def parse_groups(groupfile,dups=False):
   return groups
 
 ## Convert message to unix end of line conventions.
-# @param txt the original message
-# @return the message with '\n' as line separator
+# @param txt bytes - the original message
+# @return the message bytes with b'\n' as line separator
 def convert_eol(txt):
   txt = txt.splitlines()
   txt.append(b'')
@@ -307,7 +311,7 @@ class DSpamDirectory(object):
   # </pre>
   # @param op dspam operation mode: one of dspam.DSM_*
   # @param flags dspam operation flags: set of dspam.DSF_*
-  # @param user a different user, e.g. for innoculation
+  # @param user str - a different user, e.g. for innoculation
   # @return context manager for dspam.ctx
   @contextmanager
   def dspam_ctx(self,op,flags=0,user=None):
@@ -325,12 +329,14 @@ class DSpamDirectory(object):
 
   ## Return group user belongs to.  
   # FIXME: update for new group concepts and syntax.
+  # @param user str - user name
+  # @return str - group name
   def get_group(self,user):
     return parse_groups(self.groupfile).get(user,user)
 
   ## Set username and return common pathnames.
-  # @param user The dspam user for subsequent operations.
-  # @return commonly used pathnames: (dspam_dict,sigfile,mbox)
+  # @param user str - dspam user for subsequent operations.
+  # @return tuple - commonly used pathnames: (dspam_dict,sigfile,mbox)
   def user_files(self,user):
     "Return filenames for dict,sigs,mbox as a tuple."
     group = self.get_group(user)
@@ -535,8 +541,8 @@ class DSpamDirectory(object):
   # stored signatures with them.  It trains DSPAM with the signature,
   # setting the source to DSS_ERROR.  If no signature is found, it adds the
   # spam as a spam "corpus".
-  # @param user the DSPAM user 
-  # @param txt the spam message
+  # @param user str - the DSPAM user 
+  # @param txt bytes - the spam message
   def add_spam(self,user,txt):
     "Report a message as spam."
     self.probability = 1.0
@@ -553,7 +559,7 @@ class DSpamDirectory(object):
   # setting the source to DSS_ERROR.  If no signature is found, it adds the
   # message as an innocent "corpus" (DSS_CORPUS).
   # @param user str - the DSPAM user 
-  # @param txt the innocent message bytes
+  # @param txt bytes - the innocent message bytes
   def false_positive(self,user,txt):
     "Report a false positive, return message with tags removed."
     self.probability = 0.0
