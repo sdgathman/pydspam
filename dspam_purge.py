@@ -44,30 +44,30 @@ for user in sys.argv[1:]:
       key,data = db.first()
       totalrec = None
       while 1:
-	if key == '_TOTALS':
-	  # If we've already seen totals, then db is looped
-	  if totalrec: break	
-	  totalrec = struct.unpack('llll',data)
-	  print('TOTALS: TS: %d TI: %d TM: %d FP: %d' % totalrec)
-	  newdict[key] = data
-	else:
-	  spam_hits,innocent_hits,last_hit = struct.unpack('lll',data)
-	  if spam_hits + innocent_hits * 2 < 5:
-	    delta = start_time - last_hit
-	    if delta > PURGE_BELOW_QUOTA or (
-	      spam_hits == 0 and (
-	        delta > PURGE_NO_SPAM_HITS or
-		innocent_hits == 1 and delta > PURGE_ONE_INNOCENT_HIT)):
-	      ++deleted
-	      if DEBUG:
-		crc = struct.unpack('Q',key)[0]
-		print('DELETING: %16x: %d %d' % (crc,spam_hits,innocent_hits))
-	    else:
-	      newdict[key] = data
-	  else:
-	    newdict[key] = data
+        if key == '_TOTALS':
+          # If we've already seen totals, then db is looped
+          if totalrec: break
+          totalrec = struct.unpack('llll',data)
+          print('TOTALS: TS: %d TI: %d TM: %d FP: %d' % totalrec)
+          newdict[key] = data
+        else:
+          spam_hits,innocent_hits,last_hit = struct.unpack('lll',data)
+          if spam_hits + innocent_hits * 2 < 5:
+            delta = start_time - last_hit
+            if delta > PURGE_BELOW_QUOTA or (
+              spam_hits == 0 and (
+                delta > PURGE_NO_SPAM_HITS or
+                innocent_hits == 1 and delta > PURGE_ONE_INNOCENT_HIT)):
+              ++deleted
+              if DEBUG:
+                crc = struct.unpack('Q',key)[0]
+                print('DELETING: %16x: %d %d' % (crc,spam_hits,innocent_hits))
+            else:
+              newdict[key] = data
+          else:
+            newdict[key] = data
 
-	key,data = db.next()
+        key,data = db.next()
     except KeyError: pass
     db.close()
     newdict.close()

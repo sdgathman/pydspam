@@ -16,16 +16,16 @@ def dump_dict(dict):
     try:
       key,data = db.first()
       while 1:
-	if key == '_TOTALS':
-	  rec = struct.unpack('llll',data)
-	  print('TOTALS: TS: %d TI: %d TM: %d FP: %d' % rec)
-	else:
-	  rec = struct.unpack('lll',data)
-	  crc = struct.unpack('Q',key)[0]
-	  print('%16x S: %8d I: %8d LH: %s' % (
-	    crc,rec[0],rec[1],time.ctime(rec[2])
-	  ))
-	key,data = db.next()
+        if key == '_TOTALS':
+          rec = struct.unpack('llll',data)
+          print('TOTALS: TS: %d TI: %d TM: %d FP: %d' % rec)
+        else:
+          rec = struct.unpack('lll',data)
+          crc = struct.unpack('Q',key)[0]
+          print('%16x S: %8d I: %8d LH: %s' % (
+            crc,rec[0],rec[1],time.ctime(rec[2])
+          ))
+        key,data = db.next()
     except KeyError: pass
     db.close()
   finally: ds.unlock()

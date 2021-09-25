@@ -55,21 +55,21 @@ def process_queue(fname):
     with open(lockname,'r') as fp:
       mbox = mailbox.PortableUnixMailbox(fp,mime.MimeMessage)
       for msg in mbox:
-	log('Subject:',msg['subject'])
-	txt = msg.as_string()
-	try:
-	  if ext == 'spam':
-	    log('SPAM:',user)
-	    ds.add_spam(user,txt)
-	  else:
-	    log('FP:',user)
-	    ds.false_positive(user,txt)
-	except Exception,x:
-	  log('FAIL:',x)
-	  with open(os.path.join(dirname,user + '.fail'),'a') as f:
-	    if not txt.startswith('From '):
-	      txt = 'From %s %s\n' % (user,time.ctime()) + txt
-	    f.write(txt)
+        log('Subject:',msg['subject'])
+        txt = msg.as_string()
+        try:
+          if ext == 'spam':
+            log('SPAM:',user)
+            ds.add_spam(user,txt)
+          else:
+            log('FP:',user)
+            ds.false_positive(user,txt)
+        except Exception,x:
+          log('FAIL:',x)
+          with open(os.path.join(dirname,user + '.fail'),'a') as f:
+            if not txt.startswith('From '):
+              txt = 'From %s %s\n' % (user,time.ctime()) + txt
+            f.write(txt)
     os.unlink(lockname)
     return False
   except OSError:

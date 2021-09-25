@@ -99,10 +99,10 @@ class PLock(object):
     self.fp = None
     if backname:
       try:
-	os.remove(backname)
+        os.remove(backname)
       except OSError:
-	os.rename(self.lockname,self.basename)
-	return
+        os.rename(self.lockname,self.basename)
+        return
       os.link(self.basename,backname)
     os.rename(self.lockname,self.basename)
 
@@ -274,27 +274,27 @@ def NotSpam(multi=False):
     if mid == message_id or not message_id and getChecked(mid) < 0:
       fpcmd = CONFIG['dspam']
       if fpcmd == 'SMTP':
-	domain = CONFIG['domain']
-	fromaddr = '%s@%s'%(remote_user,domain)
-	toaddrs  = 'ham@%s'%domain
-	server = smtplib.SMTP('localhost')
-	#server.set_debuglevel(1)
-	buff = StringIO.StringIO()
-	del msg['X-Dspam-Status']
-	writeMsg(msg,buff)
-	try:
-	  server.sendmail(fromaddr, toaddrs, buff.getvalue())
-	  remlist[mid] = mid
-	except smtplib.SMTPResponseException,x:
+        domain = CONFIG['domain']
+        fromaddr = '%s@%s'%(remote_user,domain)
+        toaddrs  = 'ham@%s'%domain
+        server = smtplib.SMTP('localhost')
+        #server.set_debuglevel(1)
+        buff = StringIO.StringIO()
+        del msg['X-Dspam-Status']
+        writeMsg(msg,buff)
+        try:
+          server.sendmail(fromaddr, toaddrs, buff.getvalue())
+          remlist[mid] = mid
+        except smtplib.SMTPResponseException,x:
           #error('%d: %s'%(x.smtp_code,x.smtp_error))
           error(x)
-	server.quit()
+        server.quit()
       else:
-	PIPE = os.popen("%s -d %s --falsepositive"
-	      % (CONFIG['dspam'],remote_user),'w')
-	writeMsg(msg,PIPE)
-	rc = PIPE.close()
-	if rc: error(rc)
+        PIPE = os.popen("%s -d %s --falsepositive"
+              % (CONFIG['dspam'],remote_user),'w')
+        writeMsg(msg,PIPE)
+        rc = PIPE.close()
+        if rc: error(rc)
       if not multi: break
   FILE.close()
   if multi: return remlist
@@ -368,25 +368,25 @@ def DeleteSpam(remlist=None):
       message_id = messageID(msg)
       checked = getChecked(message_id)
       if checked < 0:
-	# Mark unchecked message saved in case user saves it
-	if cnt <= maxcnt:
-	  msg['X-Dspam-Status'] = 'Keep' 
+        # Mark unchecked message saved in case user saves it
+        if cnt <= maxcnt:
+          msg['X-Dspam-Status'] = 'Keep' 
       elif checked > 0:
-	# Mark checked message deleted so it doesn't show
-	if cnt <= maxcnt:
-	  del msg['X-Dspam-Status']
+        # Mark checked message deleted so it doesn't show
+        if cnt <= maxcnt:
+          del msg['X-Dspam-Status']
       if remlist is not None:
         # fully remove released messages
-	if message_id not in remlist:
-	  msgcnt += 1
-	  writeMsg(msg,buff)
-	continue
+        if message_id not in remlist:
+          msgcnt += 1
+          writeMsg(msg,buff)
+        continue
       status = msg.getheader('X-Status','')
       if not 'D' in status:
-	if checked < 0:
-	  msgcnt += 1
-	elif checked > 0:
-	  msg['X-Status'] = status + 'D'
+        if checked < 0:
+          msgcnt += 1
+        elif checked > 0:
+          msg['X-Status'] = status + 'D'
       writeMsg(msg,buff)
     FILE.close()
     lock.commit()
@@ -394,7 +394,7 @@ def DeleteSpam(remlist=None):
     lock.unlock()
     raise
   print("Location: %s?COMMAND=VIEW_SPAM&MBOX_IDX=%d&last_count=%d\n"%(
-	CONFIG['me'],CONFIG['mbox_idx'],msgcnt))
+        CONFIG['me'],CONFIG['mbox_idx'],msgcnt))
 
 def trimString(s,maxlen):
   if len(s) <= maxlen:
@@ -434,15 +434,15 @@ def ViewSpam():
     if 'D' in msg.getheader('X-Status',''): continue
     if not cnt and msg.unixfrom:
       try:
-	t = strptime(msg.unixfrom.split(None,2)[2].rstrip())
+        t = strptime(msg.unixfrom.split(None,2)[2].rstrip())
       except: pass
     cnt += 1
     for h in msg.headers:
       hl = h.lower()
       for al in alerts:
         if hl.find(al) > 0:
-	  alert = True
-	  break
+          alert = True
+          break
       else:
         continue
       break
@@ -457,23 +457,23 @@ def ViewSpam():
     else:
       h = decode_header(subj)
       if len(h) == 1 and len(h[0]) > 1 and h[0][1]:
-	p = h[0]
-	try:
-	  u = unicode(p[0],p[1])
-	  try:
-	    subj = u.encode('us-ascii')
-	  except LookupError:
-	    pass
-	  except UnicodeError:
-	    subj = u.encode('utf8')
-	except:
-	  pass
+        p = h[0]
+        try:
+          u = unicode(p[0],p[1])
+          try:
+            subj = u.encode('us-ascii')
+          except LookupError:
+            pass
+          except UnicodeError:
+            subj = u.encode('utf8')
+        except:
+          pass
     heading['Subject'] = trimString(subj,40)
     heading['Message-ID'] = messageID(msg)
 
     for key in heading.keys():
       if key != 'Message-ID': 
-	heading[key] = cgi.escape(heading[key],quote=True)
+        heading[key] = cgi.escape(heading[key],quote=True)
 
     PAIRS = {
       'MESSAGE_ID': heading['Message-ID'],
@@ -584,9 +584,9 @@ def CountMsgs(fname):
     eoh = True
     for ln in FILE:
       if ln.startswith('From '):
-	if not cnt:
-	  t = strptime(ln.split(None,2)[2].rstrip())
-	cnt += 1
+        if not cnt:
+          t = strptime(ln.split(None,2)[2].rstrip())
+        cnt += 1
         eoh = False
       elif not eoh:
         # Don't count messages with 'D' in X-Status

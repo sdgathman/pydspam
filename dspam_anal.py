@@ -90,16 +90,16 @@ def analyzeMessage(ds,fp,headeronly=0,maxstat=15):
 
       if maxstat > 0:
         maxstat -= 1
-	if bay_top == 0.0: bay_top = prob
-	else: bay_top *= prob
-	if bay_bot == 0.0: bay_bot = 1-prob
-	else: bay_bot *= (1-prob)
+        if bay_top == 0.0: bay_top = prob
+        else: bay_top *= prob
+        if bay_bot == 0.0: bay_bot = 1-prob
+        else: bay_bot *= (1-prob)
         print("%8d %8d %8f %4d %8f %s" % (
-	  spam_hits,innocent_hits,prob,freq,
+          spam_hits,innocent_hits,prob,freq,
           bay_top / (bay_bot + bay_top),token))
       else:
         print("%8d %8d %8f %4d %s" % (
-	  spam_hits,innocent_hits,prob,freq,token))
+          spam_hits,innocent_hits,prob,freq,token))
 
     probability = bay_top / (bay_top + bay_bot);
     print("Calculated probability = %f" % probability)

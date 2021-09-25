@@ -31,22 +31,22 @@ for fname in sys.argv[1:]:
       fp = open(lockname,'r')
       mbox = mailbox.PortableUnixMailbox(fp,mime.MimeMessage)
       for msg in mbox:
-	log('Subject:',msg['subject'])
-	txt = msg.as_string()
-	try:
-	  if ext == 'spam':
-	    log('SPAM:',user)
-	    ds.add_spam(user,txt)
-	  else:
-	    log('FP:',user)
-	    ds.false_positive(user,txt)
-	except Exception,x:
-	  log('FAIL:',x)
-	  f = open(os.path.join(dirname,user + '.fail'),'a')
-	  if not txt.startswith('From '):
-	    txt = 'From %s %s\n' % (user,time.ctime()) + txt
-	  f.write(txt)
-	  f.close()
+        log('Subject:',msg['subject'])
+        txt = msg.as_string()
+        try:
+          if ext == 'spam':
+            log('SPAM:',user)
+            ds.add_spam(user,txt)
+          else:
+            log('FP:',user)
+            ds.false_positive(user,txt)
+        except Exception,x:
+          log('FAIL:',x)
+          f = open(os.path.join(dirname,user + '.fail'),'a')
+          if not txt.startswith('From '):
+            txt = 'From %s %s\n' % (user,time.ctime()) + txt
+          f.write(txt)
+          f.close()
       fp.close()
       os.unlink(lockname)
     except OSError:
