@@ -285,7 +285,7 @@ def NotSpam(multi=False):
         try:
           server.sendmail(fromaddr, toaddrs, buff.getvalue())
           remlist[mid] = mid
-        except smtplib.SMTPResponseException,x:
+        except smtplib.SMTPResponseException as x:
           #error('%d: %s'%(x.smtp_code,x.smtp_error))
           error(x)
         server.quit()

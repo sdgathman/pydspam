@@ -64,7 +64,7 @@ def process_queue(fname):
           else:
             log('FP:',user)
             ds.false_positive(user,txt)
-        except Exception,x:
+        except Exception as x:
           log('FAIL:',x)
           with open(os.path.join(dirname,user + '.fail'),'a') as f:
             if not txt.startswith('From '):

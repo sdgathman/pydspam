@@ -40,7 +40,7 @@ for fname in sys.argv[1:]:
           else:
             log('FP:',user)
             ds.false_positive(user,txt)
-        except Exception,x:
+        except Exception as x:
           log('FAIL:',x)
           f = open(os.path.join(dirname,user + '.fail'),'a')
           if not txt.startswith('From '):
