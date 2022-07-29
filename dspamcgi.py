@@ -710,6 +710,14 @@ def SafeVars(PAIRS):
   if url.endswith('&'): url = url[:-1]
   return url
 
+class CGIError(Exception):
+    "Report CGI error"
+    def __init__(self, msg='CGIError'):
+        Exception.__init__(self, msg)
+        self.msg = msg
+    def __str__(self):
+        return self.msg
+
 def error(msg):
   output(
     { 'HEADER': "<B>AN ERROR HAS OCCURED</B>",
@@ -720,7 +728,10 @@ The following error occured while trying to process your request: <BR>
 If this problem persists, please contact your administrator.
 """ % msg }
   )
-  sys.exit(0)
+  raise CGIError(msg)
 
 if __name__ == '__main__':
-  DoCommand()
+  try:
+    DoCommand()
+  except CGIError as x:
+    pass
