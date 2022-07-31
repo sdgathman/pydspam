@@ -19,30 +19,33 @@
 from __future__ import print_function
 from time import ctime,sleep,strptime,strftime,localtime
 import sys
-import StringIO
+from io import StringIO,BytesIO
 import os
 import os.path
 import cgi
-import cgitb; cgitb.enable()
+#import cgitb; cgitb.enable()
 import mailbox
 import re
 import smtplib
 import hashlib
-from email.Header import decode_header
-try: from ConfigParser import SafeConfigParser as ConfigParser
-except: from ConfigParser import ConfigParser
-
+import traceback
+import logging
+from base64 import b64decode
+from email.header import decode_header
+try: from configparser import SafeConfigParser as ConfigParser
+except: from configparser import ConfigParser
 
 ## Configuration
 #
 CONFIG = {
   'userdir': "/var/lib/dspam",
-  'me': "pydspam.cgi",
+  'me': "pydspam",
   'domain': "mail.bmsi.com",
   'dspam': "SMTP",	# send false positives via SMTP to ham@DOMAIN
 # 'DSPAM': "/usr/local/bin/falsepositive",	# run script for FPs
   'large_scale': 'no',
   'viewspam_max': '500',
+  'mbox_idx': 0,
   'sort': 'subject'
 }
 #
@@ -70,12 +73,12 @@ class PLock(object):
       lockname = self.basename + '.lock'
     self.lockname = lockname
     st = os.stat(self.basename)
-    u = os.umask(0002)
+    u = os.umask(0o02)
     try:
-      fd = os.open(lockname,os.O_WRONLY+os.O_CREAT+os.O_EXCL,st.st_mode|0660)
+      fd = os.open(lockname,os.O_WRONLY+os.O_CREAT+os.O_EXCL,st.st_mode|0o660)
     finally:
       os.umask(u)
-    self.fp = os.fdopen(fd,'w')
+    self.fp = os.fdopen(fd,'wb')
     try:
       os.chown(self.lockname,-1,st.st_gid)
     except:
@@ -94,7 +97,7 @@ class PLock(object):
   def commit(self,backname=None):
     "Commit update transaction with optional backup file."
     if not self.fp:
-      raise IOError,"File not locked"
+      raise IOError("File not locked")
     self.fp.close()
     self.fp = None
     if backname:
@@ -142,13 +145,52 @@ def MailboxFromIdx(mb,idx):
     raise ValueError(idx)
   return mb
 
-def DoCommand():
+class CGIError(Exception):
+    "Report CGI error"
+    def __init__(self, msg='CGIError'):
+        Exception.__init__(self, msg)
+        self.msg = msg
+    def __str__(self):
+        return self.msg
+
+def wsgiapp(environ,start_response):
+  global FORM, logger
+  logger = logging.getLogger('gunicorn.error')
+  out = StringIO()
+  try:
+    remote_user = b''
+    t,auth = environ['HTTP_AUTHORIZATION'].split()
+    if t == 'Basic':
+      remote_user = b64decode(auth).split(b':')[0]
+    sys.stdout = out
+    FORM = cgi.FieldStorage(environ=environ)
+    #cgi.parse(environ=environ)
+    DoCommand(remote_user.decode())
+  except CGIError as x:
+    pass
+  except Exception as x:
+    try:
+      logger.exception("wsgiapp untrapped exception")
+      print("Content-type: text/html\n")
+      traceback.print_exc()
+    except: pass
+  hdr,data = out.getvalue().split('\n\n',1)
+  data = data.encode()
+  response_headers = []
+  for h in hdr.split('\n'):
+    k,v = h.split(':',1)
+    response_headers.append((k,v.strip()))
+  response_headers.append(('Content-Length', str(len(data))))
+  status = '200 OK'
+  start_response(status, response_headers)
+  return iter([data])
+
+def DoCommand(REMOTE_USER):
   global remote_user,FORM,MAILBOX,USER,CONFIG,config
   global VIEWSPAM_MAX,VIEWSPAM_SORT
-  remote_user = os.environ.get('REMOTE_USER','')
+  remote_user = REMOTE_USER
   if remote_user == '':
     error("System Error. I was unable to determine what username you are.")
-  FORM = cgi.FieldStorage()
   userdir = config.get('dspam','userdir')
   config.read([os.path.join(userdir,'dspam.cfg')])
   userdir = config.get('dspam','userdir')
@@ -179,8 +221,8 @@ def DoCommand():
     try:
       CONFIG['mbox_idx'] = int(idx)
     except: pass
-  if not CONFIG.has_key('mbox_idx'):
-   CONFIG['mbox_idx'] = 0
+  if 'mbox_idx' not in CONFIG:
+    CONFIG['mbox_idx'] = 0
   idx = CONFIG['mbox_idx']
   if idx:
     MAILBOX = '%s.mbox.%d' % (USER,idx)
@@ -188,13 +230,17 @@ def DoCommand():
     MAILBOX = USER + ".mbox"
     
   command = FORM.getfirst('COMMAND',"")
+  logger.info("Command: %s USER: %s idx:%s"%(command,USER,idx))
   if command == "": Welcome()
-  elif command == "VIEW_SPAM": ViewSpam()
+  elif command == "VIEW_SPAM":
+    output({'MESSAGE': ViewSpam(USER,idx) })
   elif command == "VIEW_ONE_SPAM": ViewOneSpam()
   elif command == "DELETE_SPAM": DeleteSpam()
   elif command == "NOTSPAM": NotSpam()
   elif command == "ADD_ALERT": AddAlert()
-  elif command == "DELETE_ALERT": DeleteAlert()
+  elif command == "DELETE_ALERT":
+    ln = FORM.getfirst('line',"")
+    DeleteAlert(USER,ln)
   elif command == "SORT_SPAM": SortSpam()
   elif command == "CHANGE_MBOX": ChangeMbox()
   else: error("Invalid Command: %s" % command)
@@ -214,19 +260,16 @@ def AddAlert():
     print(alert,file=fp)
   Welcome()
 
-def DeleteAlert():
-  form_line = FORM.getfirst('line',"")
+def DeleteAlert(USER,form_line):
   if form_line == "":
     error("No Alert Specified")
   try:
     form_line = int(form_line)
-    FILE = open(USER+".alerts",'r')
-    alerts = FILE.readlines()
+    with open(USER+".alerts",'r') as FILE:
+      alerts = FILE.readlines()
     del alerts[form_line]
-    FILE.close()
-    FILE = open(USER+".alerts",'w')
-    FILE.writelines(alerts)
-    FILE.close()
+    with open(USER+".alerts",'w') as FILE:
+      FILE.writelines(alerts)
   except:
     error("Invalid Alert Selected")
   Welcome()
@@ -236,17 +279,14 @@ def DeleteAlert():
 # nice with the fancy new stuff.
 def writeMsg(msg,fp):
   "Write rfc822 message to fp in unix mbox format."
-  fp.write(msg.unixfrom)
-  fp.write(''.join(msg.headers))
-  fp.write('\n')
-  msg.rewindbody()
-  fp.write(msg.fp.read())
+  fp.write(msg.as_bytes(unixfrom=True))
 
 def messageID(msg):
   "Extract an ID suitable for selecting messages from a mailbox."
   m = hashlib.md5()
-  for h in msg.headers:
-    m.update(h)
+  for h,v in msg.items():
+    m.update(h.encode())
+    m.update(str(v).encode())
   return m.hexdigest()
 
 def getChecked(mid):
@@ -266,8 +306,7 @@ def NotSpam(multi=False):
     message_id = FORM.getfirst('MESSAGE_ID',"")
     if message_id == "":
       error("No Message ID Specified")
-  FILE = open(MAILBOX,'r')
-  mbox = mailbox.PortableUnixMailbox(FILE)
+  mbox = mailbox.mbox(MAILBOX)
   remlist = {}
   for msg in mbox:
     mid = messageID(msg)
@@ -277,9 +316,10 @@ def NotSpam(multi=False):
         domain = CONFIG['domain']
         fromaddr = '%s@%s'%(remote_user,domain)
         toaddrs  = 'ham@%s'%domain
+        #error("fromaddr=%s toaddrs=%s"%(fromaddr,toaddrs))
         server = smtplib.SMTP('localhost')
         #server.set_debuglevel(1)
-        buff = StringIO.StringIO()
+        buff = BytesIO()
         del msg['X-Dspam-Status']
         writeMsg(msg,buff)
         try:
@@ -296,7 +336,6 @@ def NotSpam(multi=False):
         rc = PIPE.close()
         if rc: error(rc)
       if not multi: break
-  FILE.close()
   if multi: return remlist
   if remlist:
     DeleteSpam(remlist)
@@ -307,8 +346,7 @@ def ViewOneSpam():
   message_id = FORM.getfirst('MESSAGE_ID',"")
   if message_id == "":
     error("No Message ID Specified")
-  FILE = open(MAILBOX,'r')
-  mbox = mailbox.PortableUnixMailbox(FILE)
+  mbox = mailbox.mbox(MAILBOX)
 
   message = """
 <FORM ACTION="%s">
@@ -324,9 +362,9 @@ def ViewOneSpam():
 """ % (CONFIG['me'],message_id,CONFIG['mbox_idx'])
   for msg in mbox:
     if messageID(msg) == message_id:
-      buff = StringIO.StringIO()
+      buff = BytesIO()
       writeMsg(msg,buff)
-      message += cgi.escape(buff.getvalue(),quote=True)
+      message += cgi.escape(buff.getvalue().decode(),quote=True)
   message += "</PRE>"
   output({ 'MESSAGE': message });
 
@@ -341,7 +379,7 @@ def ChangeMbox():
   if os.path.isfile(mb):
     CONFIG['mbox_idx'] = idx
     MAILBOX = mb
-  ViewSpam()
+  output({'MESSAGE': ViewSpam(USER,idx) })
 
 def DeleteSpam(remlist=None):
   lock = PLock(MAILBOX)
@@ -353,10 +391,10 @@ def DeleteSpam(remlist=None):
   elif FORM.getfirst('notspam_all',"") != "":
     remlist = NotSpam(multi=True)
   # remlist is dict of mids that were successfully released
+  logger.info("Deleting spam "+repr(remlist))
   buff = lock.wlock()
   try:
-    FILE = open(MAILBOX,'r')
-    mbox = mailbox.PortableUnixMailbox(FILE)
+    mbox = mailbox.mbox(MAILBOX)
     try:
       maxcnt = int(FORM.getfirst('msg_cnt',str(VIEWSPAM_MAX)))
     except:
@@ -381,14 +419,13 @@ def DeleteSpam(remlist=None):
           msgcnt += 1
           writeMsg(msg,buff)
         continue
-      status = msg.getheader('X-Status','')
+      status = msg.get('X-Status','')
       if not 'D' in status:
         if checked < 0:
           msgcnt += 1
         elif checked > 0:
           msg['X-Status'] = status + 'D'
       writeMsg(msg,buff)
-    FILE.close()
     lock.commit()
   except:
     lock.unlock()
@@ -403,11 +440,10 @@ def trimString(s,maxlen):
     return s[:maxlen-3] + "..."
   return s[:maxlen]
 
-def getAlerts():
+def getAlerts(USER):
   try:
-    FILE = open(USER+".alerts",'r')
-    alerts = FILE.read().lower().splitlines()
-    FILE.close()
+    with open(USER+".alerts",'r') as FILE:
+      alerts = FILE.read().lower().splitlines()
   except IOError:
     alerts = []
   return alerts
@@ -422,23 +458,29 @@ def SortSpam():
   fp.close()
   print("Location: %(me)s?COMMAND=VIEW_SPAM&MBOX_IDX=%(mbox_idx)d\n"%CONFIG)
   
-def ViewSpam():
-  alerts = getAlerts()
+def ViewSpam(USER,idx):
+  if idx:
+    MAILBOX = '%s.mbox.%d' % (USER,idx)
+  else:
+    MAILBOX = USER + ".mbox"
+  alerts = getAlerts(USER)
 
-  FILE = open(MAILBOX,'r')
-  mbox = mailbox.PortableUnixMailbox(FILE)
+  mbox = mailbox.mbox(MAILBOX)
   cnt = 0
   headinglist = []
   t = None
   for msg in mbox:
-    if 'D' in msg.getheader('X-Status',''): continue
-    if not cnt and msg.unixfrom:
+    if 'D' in msg.get('X-Status',''): continue
+    if not cnt and msg.get_from():
       try:
-        t = strptime(msg.unixfrom.split(None,2)[2].rstrip())
+        t = strptime(msg.get_from().split(None,2)[2].rstrip())
       except: pass
     cnt += 1
-    for h in msg.headers:
-      hl = h.lower()
+    for k,h in msg.items():
+      if type(h) == str:
+        hl = h.lower()
+      else:
+        hl = h.encode().lower()
       for al in alerts:
         if hl.find(al) > 0:
           alert = True
@@ -450,8 +492,8 @@ def ViewSpam():
       alert = False
 
     heading = {}
-    heading['From'] = trimString(msg.getheader('From',""),40)
-    subj = msg.getheader('Subject',"")
+    heading['From'] = trimString(msg.get('From',""),40)
+    subj = msg.get('Subject',"")
     if subj == "":
       subj = "<None Specified>"
     else:
@@ -468,7 +510,7 @@ def ViewSpam():
             subj = u.encode('utf8')
         except:
           pass
-    heading['Subject'] = trimString(subj,40)
+    heading['Subject'] = trimString(str(subj),40)
     heading['Message-ID'] = messageID(msg)
 
     for key in heading.keys():
@@ -482,9 +524,9 @@ def ViewSpam():
     }
     heading['url'] = SafeVars(PAIRS)
     heading['alert'] = alert
-    heading['start'] = msg.unixfrom.split(None,2)[2].strip()
+    heading['start'] = msg.get_from().split(None,2)[2].strip()
     heading['ME'] = CONFIG['me']
-    status = msg.getheader('X-Dspam-Status','')
+    status = msg.get('X-Dspam-Status','')
     if status == '':
       heading['status'] = 'CHECKED'
     else:
@@ -493,7 +535,7 @@ def ViewSpam():
     headinglist.append((heading['Subject'],heading))
     if cnt >= VIEWSPAM_MAX: break
 
-  buff = StringIO.StringIO()
+  buff = StringIO()
   if t:
     s = strftime('%b %d',t)
     buff.write("<B>SPAM Blackhole: Email Quarantine for %s</B><BR>" % s)
@@ -520,7 +562,7 @@ def ViewSpam():
 </TR>
 """ % CONFIG)
   if VIEWSPAM_SORT:
-    headinglist.sort()
+    headinglist.sort(key=lambda e: e[0])
   bgcolor = None
   for subj,heading in headinglist:
     if heading['alert']: bgcolor = "FFFF00"
@@ -571,7 +613,7 @@ def ViewSpam():
 %s %s
 </FORM>
 """ % (cnt,shown,CONFIG['me'],CONFIG['mbox_idx'],prev,next))
-  output({'MESSAGE': buff.getvalue()})
+  return buff.getvalue()
 
 def CountMsgs(fname):
   "Quickly count messages in quarantine.  Return cnt,time of first message"
@@ -580,23 +622,22 @@ def CountMsgs(fname):
   cnt = 0
   t = None
   try:
-    FILE = open(fname,'r')
-    eoh = True
-    for ln in FILE:
-      if ln.startswith('From '):
-        if not cnt:
-          t = strptime(ln.split(None,2)[2].rstrip())
-        cnt += 1
-        eoh = False
-      elif not eoh:
-        # Don't count messages with 'D' in X-Status
-        if ln.startswith('X-Status: '):
-          if 'D' in ln:
-            cnt -= 1
-          eoh = True
-        elif ln == '\n':
-          eoh = True
-    FILE.close()
+    with open(fname,'rb') as FILE:
+      eoh = True
+      for ln in FILE:
+        if ln.startswith(b'From '):
+          if not cnt:
+            t = strptime(ln.split(None,2)[2].rstrip().decode())
+          cnt += 1
+          eoh = False
+        elif not eoh:
+          # Don't count messages with 'D' in X-Status
+          if ln.startswith(b'X-Status: '):
+            if 'D' in ln:
+              cnt -= 1
+            eoh = True
+          elif ln == b'\n':
+            eoh = True
     if not t:
       t = localtime(os.path.getmtime(fname))
   except IOError: 
@@ -610,6 +651,7 @@ def QuarantineList(base):
   mb = MailboxFromIdx(base,idx)
   ls = []
   while os.path.isfile(mb) or not idx:
+    #print('mb=',mb)
     f,t = CountMsgs(mb)
     s = strftime('%b %d',t)
     if f > 0:
@@ -623,12 +665,20 @@ def QuarantineList(base):
     mb = MailboxFromIdx(base,idx)
   return ls
 
-def Welcome():
+def getstats(USER):
+  try:
+    with open(USER+".stats",'r') as FILE:
+      spam = FILE.readline()
+    a = [ int(s) for s in spam.split(',')]
+    if len(a) == 4:
+      a += [0,0]
+    return a
+  except Exception as x:
+    print(x)
+    return 0,0,0,0,0,0
 
-  FILE = open(USER+".stats",'r')
-  spam = FILE.readline()
-  FILE.close()
-  spam,innocent,misses,fp,cs,ci = map(int,spam.split(','))
+def Welcome():
+  spam,innocent,misses,fp,cs,ci = getstats(USER)
   total = spam + innocent
 
   # Prepare Welcome Header
@@ -666,7 +716,7 @@ def Welcome():
 <TABLE BORDER=0>
 """ % locals()
 
-  alerts = getAlerts()
+  alerts = getAlerts(USER)
   line = 0
   for al in alerts:
     message += """<TR><TD>%s&nbsp;&nbsp;</TD><TD>[
@@ -710,14 +760,6 @@ def SafeVars(PAIRS):
   if url.endswith('&'): url = url[:-1]
   return url
 
-class CGIError(Exception):
-    "Report CGI error"
-    def __init__(self, msg='CGIError'):
-        Exception.__init__(self, msg)
-        self.msg = msg
-    def __str__(self):
-        return self.msg
-
 def error(msg):
   output(
     { 'HEADER': "<B>AN ERROR HAS OCCURED</B>",
@@ -728,10 +770,9 @@ The following error occured while trying to process your request: <BR>
 If this problem persists, please contact your administrator.
 """ % msg }
   )
-  raise CGIError(msg)
+  raise CGIError()
 
 if __name__ == '__main__':
-  try:
-    DoCommand()
-  except CGIError as x:
-    pass
+  FORM = cgi.FieldStorage()
+  logger = logging.getLogger()
+  DoCommand(os.environ.get('REMOTE_USER',''))
