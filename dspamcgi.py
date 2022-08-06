@@ -163,8 +163,15 @@ def wsgiapp(environ,start_response):
     if t == 'Basic':
       remote_user = b64decode(auth).split(b':')[0]
     sys.stdout = out
-    FORM = cgi.FieldStorage(environ=environ)
-    #cgi.parse(environ=environ)
+    try:
+      sz = int(environ.get('CONTENT_LENGTH', 0))
+    except (ValueError):
+      sz = 0
+    if sz:
+      body = environ['wsgi.input'].read(sz)
+      FORM = cgi.FieldStorage(fp=BytesIO(body),environ=environ)
+    else:
+      FORM = cgi.FieldStorage(environ=environ)
     DoCommand(remote_user.decode())
   except CGIError as x:
     pass
@@ -178,10 +185,16 @@ def wsgiapp(environ,start_response):
   data = data.encode()
   response_headers = []
   for h in hdr.split('\n'):
+    logger.info('hdr = %s',h)
     k,v = h.split(':',1)
     response_headers.append((k,v.strip()))
-  response_headers.append(('Content-Length', str(len(data))))
-  status = '200 OK'
+  if response_headers[-1][0] != 'Location':
+    response_headers.append(('Content-Length', str(len(data))))
+    status = '200 OK'
+  else:
+    status = '303 See Other'
+  if not data:
+    logger.info(repr(response_headers))
   start_response(status, response_headers)
   return iter([data])
 
@@ -384,11 +397,12 @@ def ChangeMbox():
 def DeleteSpam(remlist=None):
   lock = PLock(MAILBOX)
   deleteAll = False
-  if FORM.getfirst('delete_all',"") != "":
+  if FORM.getfirst('delete_all',''):
     lock.wlock()
     # FIXME: check for time,size change
     lock.commit()
-  elif FORM.getfirst('notspam_all',"") != "":
+  elif FORM.getfirst('notspam_all',''):
+    logger.info('Unchecked Not Spam')
     remlist = NotSpam(multi=True)
   # remlist is dict of mids that were successfully released
   logger.info("Deleting spam "+repr(remlist))
