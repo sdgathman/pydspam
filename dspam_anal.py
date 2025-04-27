@@ -1,8 +1,14 @@
 #!/usr/bin/python3
 from __future__ import print_function
 import sys
-import bsddb
 import dspam
+try:
+  import bsddb3 as bsddb
+except:
+  try:
+    import bsddb
+  except:
+    bsddb = None
 import struct
 import time
 import os
@@ -117,7 +123,7 @@ else:
   dict = os.path.join(userdir,'%s.dict'%user)
 #dict = 'test.dict'
 ds = dspam.dspam(dict,dspam.DSM_PROCESS,
-  dspam.DSF_NOLOCK|dspam.DSF_CLASSIFY|dspam.DSF_CHAINED|dspam.DSF_SIGNATURE)
+  dspam.DSM_CLASSIFY|dspam.DSZ_CHAIN|dspam.DSF_SIGNATURE)
 
 ds.lock()
 try:

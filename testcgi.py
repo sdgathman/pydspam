@@ -33,10 +33,10 @@ class CGITestCase(unittest.TestCase):
   def testDecode(self):
     ecre = email.header.ecre
     parts = ecre.split(self.badSubj)
-    print(parts)
+    #print(parts)
     dec = email.base64mime.decode(parts[3])
     h = decode_header(self.badSubj)
-    print(h)
+    self.assertEqual(dec,h[0][0])
 
 def suite(): return unittest.makeSuite(CGITestCase,'test')
 
